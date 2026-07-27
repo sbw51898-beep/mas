@@ -108,6 +108,17 @@ class Message(BaseModel):
     user_prompt: str = ""
 
 
+class InitialState(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    initial_state_id: str
+    question_id: str
+    agent_ids: tuple[str, ...]
+    messages: tuple[Message, ...]
+    responses: tuple[AgentResponse, ...]
+    errors: tuple[str, ...] = ()
+
+
 class SelectionScore(BaseModel):
     model_config = ConfigDict(frozen=True)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import platform
 from collections import Counter
 from collections.abc import Sequence
@@ -11,6 +12,7 @@ from mas_experiment.domain import (
     AgentResponse,
     AgentRole,
     ExperimentResult,
+    InitialState,
     Message,
     ModelProvider,
     Question,
@@ -19,6 +21,10 @@ from mas_experiment.domain import (
 from mas_experiment.metrics import calculate_metrics
 from mas_experiment.selectors import score_candidates
 from mas_experiment.voting import NoValidAnswerError, majority_vote
+
+
+class InitialStateValidationError(ValueError):
+    """Raised when a shared initial snapshot cannot seed a run."""
 
 
 def _prompt_for(
@@ -141,13 +147,28 @@ def _build_result(
     )
 
 
-async def _initial_stage(
+def _initial_state_id(
+    question: Question,
+    roles: tuple[AgentRole, ...],
+    responses: Sequence[AgentResponse],
+) -> str:
+    identity = "|".join(
+        (
+            question.question_id,
+            *(role.agent_id for role in roles),
+            *(response.response_id for response in responses),
+        )
+    )
+    return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
+
+
+async def prepare_initial_state(
     question: Question,
     roles: tuple[AgentRole, ...],
     provider: ModelProvider,
     *,
     seed: int,
-) -> tuple[list[Message], list[AgentResponse], list[str]]:
+) -> InitialState:
     visible_messages: tuple[Message, ...] = ()
     calls = [
         provider.generate(
@@ -178,7 +199,71 @@ async def _initial_stage(
                 user_prompt=prompt,
             )
         )
-    return messages, responses, errors
+    return InitialState(
+        initial_state_id=_initial_state_id(question, roles, responses),
+        question_id=question.question_id,
+        agent_ids=tuple(role.agent_id for role in roles),
+        messages=tuple(messages),
+        responses=tuple(responses),
+        errors=tuple(errors),
+    )
+
+
+def validate_initial_state(
+    question: Question,
+    roles: tuple[AgentRole, ...],
+    state: InitialState,
+) -> None:
+    role_ids = tuple(role.agent_id for role in roles)
+    if state.question_id != question.question_id:
+        raise InitialStateValidationError(
+            "initial state question does not match"
+        )
+    if state.agent_ids != role_ids:
+        raise InitialStateValidationError(
+            "initial state agent order does not match"
+        )
+    if state.errors:
+        raise InitialStateValidationError(
+            "initial state contains initialization errors: "
+            + "; ".join(state.errors)
+        )
+    if len(state.responses) != len(roles):
+        raise InitialStateValidationError(
+            "initial state must contain exactly one response per agent"
+        )
+    if len(state.messages) != len(roles):
+        raise InitialStateValidationError(
+            "initial state must contain exactly one message per agent"
+        )
+    response_ids = tuple(
+        response.agent_id for response in state.responses
+    )
+    message_ids = tuple(message.speaker for message in state.messages)
+    if response_ids != role_ids or message_ids != role_ids:
+        raise InitialStateValidationError(
+            "initial state response and message agents do not match"
+        )
+    if any(response.round_index != 0 for response in state.responses):
+        raise InitialStateValidationError(
+            "initial responses must use round_index 0"
+        )
+    if any(message.round_index != 0 for message in state.messages):
+        raise InitialStateValidationError(
+            "initial messages must use round_index 0"
+        )
+    if any(message.visible_history_ids for message in state.messages):
+        raise InitialStateValidationError(
+            "initial messages must have empty visible history"
+        )
+    option_ids = set(question.options)
+    if any(
+        set(response.probabilities) != option_ids
+        for response in state.responses
+    ):
+        raise InitialStateValidationError(
+            "initial response probability options do not match question"
+        )
 
 
 async def run_independent(
@@ -188,12 +273,15 @@ async def run_independent(
     *,
     seed: int,
 ) -> ExperimentResult:
-    messages, responses, errors = await _initial_stage(
+    initial_state = await prepare_initial_state(
         question,
         roles,
         provider,
         seed=seed,
     )
+    messages = list(initial_state.messages)
+    responses = list(initial_state.responses)
+    errors = list(initial_state.errors)
     latest = _latest_by_agent(responses)
     self_histories = {
         role.agent_id: [
@@ -274,12 +362,15 @@ async def run_round_robin(
     *,
     seed: int,
 ) -> ExperimentResult:
-    messages, responses, errors = await _initial_stage(
+    initial_state = await prepare_initial_state(
         question,
         roles,
         provider,
         seed=seed,
     )
+    messages = list(initial_state.messages)
+    responses = list(initial_state.responses)
+    errors = list(initial_state.errors)
     latest = _latest_by_agent(responses)
     for round_index in (1, 2):
         for role in roles:
@@ -331,12 +422,15 @@ async def run_dynamic(
 ) -> ExperimentResult:
     roles_by_id = {role.agent_id: role for role in roles}
     agent_ids = tuple(roles_by_id)
-    messages, responses, errors = await _initial_stage(
+    initial_state = await prepare_initial_state(
         question,
         roles,
         provider,
         seed=seed,
     )
+    messages = list(initial_state.messages)
+    responses = list(initial_state.responses)
+    errors = list(initial_state.errors)
     latest = _latest_by_agent(responses)
     last_spoken_steps = {
         role.agent_id: index

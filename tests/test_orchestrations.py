@@ -15,19 +15,24 @@ from mas_experiment.domain import (
     AgentResponse,
     AgentRole,
     ExperimentResult,
+    InitialState,
     Message,
     Question,
 )
 from mas_experiment.orchestrations import (
+    InitialStateValidationError,
+    prepare_initial_state,
     run_dynamic,
     run_independent,
     run_round_robin,
+    validate_initial_state,
 )
 from mas_experiment.providers import DeterministicProvider
 
 
 class RecordingProvider:
-    def __init__(self) -> None:
+    def __init__(self, *, fail_agent_id: str | None = None) -> None:
+        self.fail_agent_id = fail_agent_id
         self.visible_histories: list[tuple[str, ...]] = []
         self.calls: list[tuple[str, tuple[Message, ...]]] = []
 
@@ -47,6 +52,8 @@ class RecordingProvider:
         visible_ids = tuple(message.message_id for message in visible_messages)
         self.visible_histories.append(visible_ids)
         self.calls.append((role.agent_id, visible_messages))
+        if role.agent_id == self.fail_agent_id:
+            raise RuntimeError("initial failure")
         answer = question.options.keys().__iter__().__next__()
         payload = {
             "answer": answer,
@@ -66,6 +73,124 @@ class RecordingProvider:
             raw_text=json.dumps(payload),
             changed_from_previous=False,
             timestamp=datetime(2026, 7, 27, tzinfo=timezone.utc),
+        )
+
+
+@pytest.mark.asyncio
+async def test_prepare_initial_state_makes_three_mutually_invisible_calls() -> None:
+    provider = RecordingProvider()
+
+    state = await prepare_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+    )
+
+    assert provider.call_count == 3
+    assert provider.visible_histories == [(), (), ()]
+    assert state.question_id == FORMAL_PILOT_QUESTION.question_id
+    assert state.agent_ids == tuple(
+        role.agent_id for role in FORMAL_PILOT_ROLES
+    )
+    assert len(state.messages) == 3
+    assert len(state.responses) == 3
+    assert state.errors == ()
+
+
+@pytest.mark.asyncio
+async def test_prepare_initial_state_preserves_failures_for_validation() -> None:
+    provider = RecordingProvider(fail_agent_id="agent-b")
+
+    state = await prepare_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+    )
+
+    assert len(state.responses) == 2
+    assert state.errors == (
+        "agent-b: RuntimeError: initial failure",
+    )
+
+
+def test_validate_initial_state_rejects_a_different_question() -> None:
+    state = InitialState(
+        initial_state_id="shared-1",
+        question_id="other-question",
+        agent_ids=tuple(role.agent_id for role in FORMAL_PILOT_ROLES),
+        messages=(),
+        responses=(),
+    )
+
+    with pytest.raises(
+        InitialStateValidationError,
+        match="question",
+    ):
+        validate_initial_state(
+            FORMAL_PILOT_QUESTION,
+            FORMAL_PILOT_ROLES,
+            state,
+        )
+
+
+@pytest.mark.asyncio
+async def test_validate_initial_state_rejects_an_incomplete_snapshot() -> None:
+    provider = RecordingProvider(fail_agent_id="agent-b")
+    state = await prepare_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+    )
+
+    with pytest.raises(
+        InitialStateValidationError,
+        match="initialization errors",
+    ):
+        validate_initial_state(
+            FORMAL_PILOT_QUESTION,
+            FORMAL_PILOT_ROLES,
+            state,
+        )
+
+
+@pytest.mark.asyncio
+async def test_validate_initial_state_rejects_incomplete_probabilities() -> None:
+    provider = RecordingProvider()
+    state = await prepare_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+    )
+    first = state.responses[0]
+    invalid_response = AgentResponse(
+        response_id=first.response_id,
+        agent_id=first.agent_id,
+        round_index=0,
+        answer="A",
+        probabilities={"A": 0.8, "B": 0.1, "C": 0.1},
+        reasoning=first.reasoning,
+        raw_text=first.raw_text,
+        changed_from_previous=False,
+        timestamp=first.timestamp,
+    )
+    invalid_state = state.model_copy(
+        update={
+            "responses": (invalid_response, *state.responses[1:]),
+        }
+    )
+
+    with pytest.raises(
+        InitialStateValidationError,
+        match="probability options",
+    ):
+        validate_initial_state(
+            FORMAL_PILOT_QUESTION,
+            FORMAL_PILOT_ROLES,
+            invalid_state,
         )
 
 
