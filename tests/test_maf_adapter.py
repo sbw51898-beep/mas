@@ -52,7 +52,12 @@ def test_maf_runtime_info_reports_installed_version() -> None:
 @pytest.mark.asyncio
 async def test_maf_model_provider_parses_structured_agent_response() -> None:
     class FakeAgent:
-        async def run(self, prompt: str) -> SimpleNamespace:
+        async def run(
+            self,
+            prompt: str,
+            *,
+            options: dict | None = None,
+        ) -> SimpleNamespace:
             assert "What is 7 multiplied by 8?" in prompt
             return SimpleNamespace(
                 text=(
@@ -83,7 +88,12 @@ async def test_prompt_contains_only_the_selected_agents_private_context() -> Non
     class CapturingAgent:
         prompt = ""
 
-        async def run(self, prompt: str) -> SimpleNamespace:
+        async def run(
+            self,
+            prompt: str,
+            *,
+            options: dict | None = None,
+        ) -> SimpleNamespace:
             self.prompt = prompt
             return SimpleNamespace(
                 text=(
@@ -108,3 +118,90 @@ async def test_prompt_contains_only_the_selected_agents_private_context() -> Non
     assert "Security scores:" not in agent.prompt
     assert "Cost advantage scores:" not in agent.prompt
     assert "correct answer" not in agent.prompt.lower()
+
+
+@pytest.mark.asyncio
+async def test_deepseek_request_disables_thinking_and_temperature_is_zero() -> None:
+    class CapturingAgent:
+        options: dict = {}
+
+        async def run(
+            self,
+            prompt: str,
+            *,
+            options: dict | None = None,
+        ) -> SimpleNamespace:
+            self.options = options or {}
+            return SimpleNamespace(
+                text=(
+                    '{"answer":"C","probabilities":'
+                    '{"A":0.1,"B":0.2,"C":0.6,"D":0.1},'
+                    '"reasoning":"Combined evidence favors C."}'
+                ),
+                response_id="request-1",
+                usage_details={"input_token_count": 10, "output_token_count": 5},
+                additional_properties={"model": "deepseek-v4-flash"},
+            )
+
+    agent = CapturingAgent()
+    provider = MAFModelProvider({"agent-a": agent})
+
+    response = await provider.generate(
+        question=FORMAL_PILOT_QUESTION,
+        role=FORMAL_PILOT_ROLES[0],
+        round_index=0,
+        visible_messages=(),
+        seed=20260727,
+    )
+
+    assert agent.options["temperature"] == 0
+    assert agent.options["extra_body"] == {
+        "thinking": {"type": "disabled"}
+    }
+    assert agent.options["response_format"] == {"type": "json_object"}
+    assert response.provider_metadata["request_id"] == "request-1"
+    assert response.provider_metadata["usage"]["input_token_count"] == 10
+
+
+@pytest.mark.asyncio
+async def test_invalid_payload_gets_one_repair_request() -> None:
+    class SequencedAgent:
+        def __init__(self) -> None:
+            self.outputs = [
+                "not json",
+                (
+                    '{"answer":"C","probabilities":'
+                    '{"A":0.1,"B":0.2,"C":0.6,"D":0.1},'
+                    '"reasoning":"Repaired output."}'
+                ),
+            ]
+            self.prompts: list[str] = []
+
+        async def run(
+            self,
+            prompt: str,
+            *,
+            options: dict | None = None,
+        ) -> SimpleNamespace:
+            self.prompts.append(prompt)
+            return SimpleNamespace(
+                text=self.outputs[len(self.prompts) - 1],
+                response_id=f"request-{len(self.prompts)}",
+                usage_details=None,
+                additional_properties={},
+            )
+
+    agent = SequencedAgent()
+    provider = MAFModelProvider({"agent-a": agent})
+
+    response = await provider.generate(
+        question=FORMAL_PILOT_QUESTION,
+        role=FORMAL_PILOT_ROLES[0],
+        round_index=0,
+        visible_messages=(),
+        seed=20260727,
+    )
+
+    assert len(agent.prompts) == 2
+    assert "Repair the following invalid JSON response" in agent.prompts[1]
+    assert response.provider_metadata["repair_requests"] == 1

@@ -5,6 +5,7 @@ import pytest
 from mas_experiment.datasets import AGENT_ROLES, QUESTIONS
 from mas_experiment.providers import (
     ConfigurationError,
+    DeepSeekSettings,
     DeterministicProvider,
     OpenAICompatibleSettings,
 )
@@ -57,3 +58,35 @@ def test_settings_fail_without_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(ConfigurationError, match="OPENAI_API_KEY"):
         OpenAICompatibleSettings.from_env()
+
+
+def test_deepseek_settings_require_approved_protocol(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "key-value")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.deepseek.com")
+    monkeypatch.setenv(
+        "OPENAI_CHAT_COMPLETION_MODEL",
+        "deepseek-v4-flash",
+    )
+
+    settings = DeepSeekSettings.from_env()
+
+    assert settings.base_url == "https://api.deepseek.com"
+    assert settings.model == "deepseek-v4-flash"
+    assert settings.thinking == "disabled"
+    assert settings.temperature == 0.0
+
+
+def test_deepseek_settings_reject_wrong_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "key-value")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.deepseek.com")
+    monkeypatch.setenv(
+        "OPENAI_CHAT_COMPLETION_MODEL",
+        "deepseek-v4-pro",
+    )
+
+    with pytest.raises(ConfigurationError, match="deepseek-v4-flash"):
+        DeepSeekSettings.from_env()

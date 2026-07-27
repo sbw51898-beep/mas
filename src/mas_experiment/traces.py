@@ -11,9 +11,23 @@ from mas_experiment.domain import ExperimentResult
 _SECRET_KEY_PARTS = ("api_key", "authorization", "token", "secret")
 
 
+def _is_secret_key(key: str) -> bool:
+    normalized = key.casefold()
+    safe_usage_keys = {
+        "input_token_count",
+        "output_token_count",
+        "total_token_count",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+    }
+    if normalized in safe_usage_keys:
+        return False
+    return any(part in normalized for part in _SECRET_KEY_PARTS)
+
+
 def _sanitize(value: Any, *, key: str = "") -> Any:
-    normalized_key = key.casefold()
-    if any(part in normalized_key for part in _SECRET_KEY_PARTS):
+    if _is_secret_key(key):
         return "[REDACTED]"
     if isinstance(value, Mapping):
         return {

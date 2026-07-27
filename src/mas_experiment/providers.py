@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, SecretStr
 
@@ -42,6 +43,31 @@ class OpenAICompatibleSettings(BaseModel):
             api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
             base_url=os.environ["OPENAI_BASE_URL"],
             model=os.environ["OPENAI_CHAT_COMPLETION_MODEL"],
+        )
+
+
+class DeepSeekSettings(OpenAICompatibleSettings):
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-flash"
+    thinking: Literal["disabled"] = "disabled"
+    temperature: float = 0.0
+
+    @classmethod
+    def from_env(cls) -> DeepSeekSettings:
+        base = OpenAICompatibleSettings.from_env()
+        if base.base_url.rstrip("/") != "https://api.deepseek.com":
+            raise ConfigurationError(
+                "formal pilot requires OPENAI_BASE_URL="
+                "https://api.deepseek.com"
+            )
+        if base.model != "deepseek-v4-flash":
+            raise ConfigurationError(
+                "formal pilot requires deepseek-v4-flash"
+            )
+        return cls(
+            api_key=base.api_key,
+            base_url="https://api.deepseek.com",
+            model="deepseek-v4-flash",
         )
 
 
