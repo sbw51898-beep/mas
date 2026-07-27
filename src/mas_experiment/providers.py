@@ -64,11 +64,21 @@ class DeterministicProvider:
         )
         digest = hashlib.sha256(payload.encode("utf-8")).digest()
         options = tuple(question.options)
-        answer = options[digest[0] % len(options)]
-        confidence = round(0.5 + (digest[1] / 255) * 0.45, 4)
+        weights = [digest[index] + 1 for index in range(len(options))]
+        total = sum(weights)
+        probabilities = {
+            option: weight / total
+            for option, weight in zip(options, weights, strict=True)
+        }
+        maximum = max(probabilities.values())
+        answer = next(
+            option
+            for option in options
+            if probabilities[option] == maximum
+        )
         raw_payload = {
             "answer": answer,
-            "confidence": confidence,
+            "probabilities": probabilities,
             "reasoning": (
                 f"Offline deterministic response for {question.question_id} "
                 f"from {role.agent_id}."
@@ -83,7 +93,7 @@ class DeterministicProvider:
             agent_id=role.agent_id,
             round_index=round_index,
             answer=answer,
-            confidence=confidence,
+            probabilities=probabilities,
             reasoning=raw_payload["reasoning"],
             raw_text=json.dumps(raw_payload, ensure_ascii=False, sort_keys=True),
             changed_from_previous=False,

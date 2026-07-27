@@ -14,12 +14,17 @@ def response(
     *,
     confidence: float = 0.8,
 ) -> AgentResponse:
+    other_probability = (1.0 - confidence) / 3
+    probabilities = {
+        option: (confidence if option == answer else other_probability)
+        for option in ("A", "B", "C", "D")
+    }
     return AgentResponse(
         response_id=f"{agent_id}-{answer}",
         agent_id=agent_id,
         round_index=0,
         answer=answer,
-        confidence=confidence,
+        probabilities=probabilities,
         reasoning="A reason.",
         raw_text="{}",
         changed_from_previous=False,

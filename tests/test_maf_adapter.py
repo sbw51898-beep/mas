@@ -50,7 +50,11 @@ async def test_maf_model_provider_parses_structured_agent_response() -> None:
         async def run(self, prompt: str) -> SimpleNamespace:
             assert "What is 7 multiplied by 8?" in prompt
             return SimpleNamespace(
-                text='{"answer":"B","confidence":0.9,"reasoning":"7 x 8 = 56"}'
+                text=(
+                    '{"answer":"B","probabilities":'
+                    '{"A":0.03,"B":0.9,"C":0.04,"D":0.03},'
+                    '"reasoning":"7 x 8 = 56"}'
+                )
             )
 
     provider = MAFModelProvider({"agent-a": FakeAgent()})
@@ -65,4 +69,5 @@ async def test_maf_model_provider_parses_structured_agent_response() -> None:
 
     assert response.answer == "B"
     assert response.confidence == pytest.approx(0.9)
+    assert response.probabilities["B"] == pytest.approx(0.9)
     assert response.reasoning == "7 x 8 = 56"

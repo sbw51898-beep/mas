@@ -17,12 +17,20 @@ QUESTION = Question(
 
 
 def response(answer: str, agent_id: str = "agent-a") -> AgentResponse:
+    probabilities = (
+        {"Z": 1.0}
+        if answer == "Z"
+        else {
+            option: (0.7 if option == answer else 0.1)
+            for option in QUESTION.options
+        }
+    )
     return AgentResponse(
         response_id=f"{agent_id}-{answer}",
         agent_id=agent_id,
         round_index=0,
         answer=answer,
-        confidence=0.8,
+        probabilities=probabilities,
         reasoning="A reason.",
         raw_text="{}",
         changed_from_previous=False,

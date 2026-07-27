@@ -14,6 +14,10 @@ from agent_framework.orchestrations import (
     GroupChatState,
 )
 
+from mas_experiment.beliefs import (
+    normalize_probabilities,
+    validate_answer_matches_probabilities,
+)
 from mas_experiment.domain import (
     AgentResponse,
     AgentRole,
@@ -130,15 +134,23 @@ class MAFModelProvider:
         prompt = (
             f"Question: {question.prompt}\n{options}\n\n"
             f"Public discussion:\n{history or '(none)'}\n\n"
-            "Return only a JSON object with answer, confidence from 0 to 1, "
-            "and concise reasoning."
+            "Return only a JSON object with answer, probabilities for every "
+            "option summing to 1, and concise reasoning."
         )
         agent = self._agents_by_id[role.agent_id]
         result = await agent.run(prompt)
         raw_text = _extract_text(result)
         payload = _parse_json_object(raw_text)
         answer = str(payload["answer"]).strip().upper()
-        confidence = float(payload["confidence"])
+        probabilities = normalize_probabilities(
+            question,
+            payload["probabilities"],
+        )
+        _, answer_tie_break = validate_answer_matches_probabilities(
+            question,
+            answer,
+            probabilities,
+        )
         reasoning = str(payload["reasoning"]).strip()
         response_key = (
             f"{role.agent_id}|{round_index}|{raw_text}"
@@ -148,8 +160,9 @@ class MAFModelProvider:
             agent_id=role.agent_id,
             round_index=round_index,
             answer=answer,
-            confidence=confidence,
+            probabilities=probabilities,
             reasoning=reasoning,
             raw_text=raw_text,
             changed_from_previous=False,
+            answer_tie_break=answer_tie_break,
         )

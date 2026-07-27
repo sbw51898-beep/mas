@@ -31,7 +31,9 @@ async def test_offline_provider_is_deterministic() -> None:
 
     assert first == second
     assert first.answer in QUESTIONS[0].options
-    assert 0.5 <= first.confidence <= 0.95
+    assert set(first.probabilities) == set(QUESTIONS[0].options)
+    assert sum(first.probabilities.values()) == pytest.approx(1.0)
+    assert first.confidence == max(first.probabilities.values())
 
 
 def test_settings_load_only_required_openai_compatible_values(

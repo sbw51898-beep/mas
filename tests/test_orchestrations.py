@@ -39,7 +39,10 @@ class RecordingProvider:
         answer = question.options.keys().__iter__().__next__()
         payload = {
             "answer": answer,
-            "confidence": 0.8,
+            "probabilities": {
+                option: (0.7 if option == answer else 0.1)
+                for option in question.options
+            },
             "reasoning": f"{role.agent_id} response",
         }
         return AgentResponse(
@@ -47,7 +50,7 @@ class RecordingProvider:
             agent_id=role.agent_id,
             round_index=round_index,
             answer=answer,
-            confidence=0.8,
+            probabilities=payload["probabilities"],
             reasoning=payload["reasoning"],
             raw_text=json.dumps(payload),
             changed_from_previous=False,

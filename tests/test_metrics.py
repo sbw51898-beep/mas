@@ -23,12 +23,16 @@ def response(
     *,
     changed: bool = False,
 ) -> AgentResponse:
+    probabilities = {
+        option: (0.7 if option == answer else 0.1)
+        for option in QUESTION.options
+    }
     return AgentResponse(
         response_id=f"{agent_id}-{round_index}",
         agent_id=agent_id,
         round_index=round_index,
         answer=answer,
-        confidence=0.8,
+        probabilities=probabilities,
         reasoning="A reason.",
         raw_text="{}",
         changed_from_previous=changed,

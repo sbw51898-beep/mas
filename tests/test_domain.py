@@ -6,14 +6,29 @@ from pydantic import ValidationError
 from mas_experiment.domain import AgentResponse, Question
 
 
-def test_response_rejects_confidence_outside_unit_interval() -> None:
+def test_response_derives_confidence_from_probabilities() -> None:
+    response = AgentResponse(
+        response_id="r1",
+        agent_id="agent-a",
+        round_index=0,
+        answer="A",
+        probabilities={"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.1},
+        reasoning="Because A follows from the evidence.",
+        raw_text='{"answer":"A"}',
+        changed_from_previous=False,
+    )
+
+    assert response.confidence == pytest.approx(0.7)
+
+
+def test_response_rejects_probability_outside_unit_interval() -> None:
     with pytest.raises(ValidationError):
         AgentResponse(
             response_id="r1",
             agent_id="agent-a",
             round_index=0,
             answer="A",
-            confidence=1.1,
+            probabilities={"A": 1.1, "B": 0.0, "C": 0.0, "D": -0.1},
             reasoning="Because A follows from the evidence.",
             raw_text='{"answer":"A"}',
             changed_from_previous=False,

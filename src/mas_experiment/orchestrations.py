@@ -32,7 +32,8 @@ def _prompt_for(question: Question, visible_messages: Sequence[Message]) -> str:
     return (
         f"Question: {question.prompt}\n{options}\n\n"
         f"Public discussion:\n{history_section}\n\n"
-        "Return JSON with answer, confidence, and concise reasoning."
+        "Return JSON with answer, probabilities for every option summing "
+        "to 1, and concise reasoning."
     )
 
 
