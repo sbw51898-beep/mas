@@ -60,7 +60,7 @@ API Key 只从环境变量读取，日志会递归清理名称包含 `api_key`�
 
 ## DeepSeek正式单题试跑
 
-正式试跑使用批准的隐藏信息供应商任务和 DeepSeek V4 Flash 非思考模式。同一道题分别运行独立、固定轮流和动态发言三种机制，每种机制9次调用。
+正式试跑使用批准的隐藏信息供应商任务和 DeepSeek V4 Flash 非思考模式。三种机制共享同一批三智能体初始回答，然后分别执行6次后续调用；每种机制仍记录9个逻辑响应位置。
 
 请只在本机 PowerShell 会话中设置密钥，不要将密钥粘贴到聊天、代码或GitHub：
 
@@ -68,15 +68,15 @@ API Key 只从环境变量读取，日志会递归清理名称包含 `api_key`�
 $env:OPENAI_API_KEY="<set locally; do not paste into chat>"
 $env:OPENAI_BASE_URL="https://api.deepseek.com"
 $env:OPENAI_CHAT_COMPLETION_MODEL="deepseek-v4-flash"
-mas-experiment formal-pilot --output artifacts/deepseek-formal-pilot.jsonl
+mas-experiment formal-pilot --output artifacts/deepseek-formal-pilot-shared-initial.jsonl
 ```
 
-命令先执行一次不计入讨论预算的连通性请求，然后执行27次讨论调用。若模型返回非法结构，最多追加一次格式修复请求，并在日志和报告中单独计数。输出包括 JSONL 完整轨迹和同名 Markdown 审计报告。
+命令先执行一次不计入讨论预算的连通性请求，然后执行3次共享初始化请求和18次模式后续请求，共21次真实讨论请求。三种模式分别序列化共享初始回答，因此输出仍有27个逻辑响应位置。若模型返回非法结构，最多追加一次格式修复请求，并在日志和报告中单独计数。输出包括 JSONL 完整轨迹和同名 Markdown 审计报告。
 
 无需API Key即可先验证完全相同的离线流程：
 
 ```powershell
-mas-experiment formal-pilot --provider offline --skip-connectivity --output artifacts/formal-pilot-offline.jsonl
+mas-experiment formal-pilot --provider offline --skip-connectivity --output artifacts/formal-pilot-shared-initial-offline.jsonl
 ```
 
 离线结果只验证工程机制，真实单题结果也不能用于认定某种机制更优。

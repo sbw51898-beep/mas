@@ -14,9 +14,58 @@ def _format_number(value: Any) -> str:
     return "n/a"
 
 
-def _provider_totals(
+def provider_request_totals(
     results: Sequence[Mapping[str, Any]],
 ) -> tuple[int, int]:
+    shared_metadata = [
+        result.get("metadata", {})
+        for result in results
+        if "shared_initialization_api_requests"
+        in result.get("metadata", {})
+    ]
+    if shared_metadata:
+        api_requests = max(
+            int(
+                metadata.get(
+                    "shared_initialization_api_requests",
+                    0,
+                )
+                or 0
+            )
+            for metadata in shared_metadata
+        )
+        api_requests += sum(
+            int(
+                result.get("metadata", {}).get(
+                    "mode_follow_up_api_requests",
+                    0,
+                )
+                or 0
+            )
+            for result in results
+        )
+        repairs = max(
+            int(
+                metadata.get(
+                    "shared_initialization_repair_requests",
+                    0,
+                )
+                or 0
+            )
+            for metadata in shared_metadata
+        )
+        repairs += sum(
+            int(
+                result.get("metadata", {}).get(
+                    "mode_follow_up_repair_requests",
+                    0,
+                )
+                or 0
+            )
+            for result in results
+        )
+        return api_requests, repairs
+
     api_requests = 0
     repairs = 0
     for result in results:
@@ -53,7 +102,20 @@ def _private_disclosure(
 def build_pilot_report(
     results: Sequence[Mapping[str, Any]],
 ) -> str:
-    api_requests, repairs = _provider_totals(results)
+    api_requests, repairs = provider_request_totals(results)
+    logical_slots = sum(
+        len(result.get("responses", [])) for result in results
+    )
+    shared_ids = {
+        str(
+            result.get("metadata", {}).get(
+                "initial_state_id",
+                "",
+            )
+        )
+        for result in results
+        if result.get("metadata", {}).get("initial_state_id")
+    }
     lines = [
         "# DeepSeek 多智能体正式试跑审计报告",
         "",
@@ -61,13 +123,22 @@ def build_pilot_report(
         "",
         f"- 模式记录数：{len(results)}",
         f"- 讨论阶段实际API请求：{api_requests}",
+        f"- 逻辑响应位置：{logical_slots}",
         f"- 格式修复请求：{repairs}",
-        "",
-        "| 模式 | 有效响应 | pooled | majority | accuracy | "
+    ]
+    if len(shared_ids) == 1:
+        lines.append(
+            f"- 共享初始化状态ID：{next(iter(shared_ids))}"
+        )
+    lines.extend(
+        [
+            "",
+            "| 模式 | 有效响应 | pooled | majority | accuracy | "
         "majority_share | unanimity | wrong_consensus | "
         "JS分歧 | Brier |",
-        "|---|---:|---|---|---:|---:|---|---|---:|---:|",
-    ]
+            "|---|---:|---|---|---:|---:|---|---|---:|---:|",
+        ]
+    )
     for result in results:
         metrics = result.get("metrics") or {}
         lines.append(

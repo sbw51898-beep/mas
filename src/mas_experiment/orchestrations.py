@@ -100,6 +100,42 @@ def _build_result(
     seed: int,
     errors: Sequence[str],
 ) -> ExperimentResult:
+    shared_initialization_api_requests = sum(
+        int(
+            response.provider_metadata.get("api_requests", 0)
+            or 0
+        )
+        for response in initial_state.responses
+    )
+    follow_up_responses = responses[len(initial_state.responses):]
+    mode_follow_up_api_requests = sum(
+        int(
+            response.provider_metadata.get("api_requests", 0)
+            or 0
+        )
+        for response in follow_up_responses
+    )
+    shared_initialization_repair_requests = sum(
+        int(
+            response.provider_metadata.get("repair_requests", 0)
+            or 0
+        )
+        for response in initial_state.responses
+    )
+    mode_follow_up_repair_requests = sum(
+        int(
+            response.provider_metadata.get("repair_requests", 0)
+            or 0
+        )
+        for response in follow_up_responses
+    )
+    if not shared_initialization_api_requests:
+        shared_initialization_api_requests = len(
+            initial_state.responses
+        )
+    if not mode_follow_up_api_requests:
+        mode_follow_up_api_requests = len(follow_up_responses)
+
     latest = tuple(_latest_by_agent(responses).values())
     final_answer: str | None = None
     tie_break = False
@@ -145,19 +181,17 @@ def _build_result(
             "python_version": platform.python_version(),
             "engine": "framework-independent-core",
             "equal_budget_calls": 9,
-            "shared_initialization_api_requests": sum(
-                int(
-                    response.provider_metadata.get("api_requests", 0)
-                    or 0
-                )
-                for response in initial_state.responses
+            "shared_initialization_api_requests": (
+                shared_initialization_api_requests
             ),
-            "mode_follow_up_api_requests": sum(
-                int(
-                    response.provider_metadata.get("api_requests", 0)
-                    or 0
-                )
-                for response in responses[len(initial_state.responses):]
+            "mode_follow_up_api_requests": (
+                mode_follow_up_api_requests
+            ),
+            "shared_initialization_repair_requests": (
+                shared_initialization_repair_requests
+            ),
+            "mode_follow_up_repair_requests": (
+                mode_follow_up_repair_requests
             ),
             "initial_state_id": initial_state.initial_state_id,
             "shared_initial_state": shared_initial_state,

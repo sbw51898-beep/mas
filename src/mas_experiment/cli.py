@@ -4,7 +4,7 @@ import asyncio
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean
-from typing import Annotated, Any
+from typing import Annotated, Any, NamedTuple
 
 import typer
 
@@ -22,9 +22,11 @@ from mas_experiment.maf_adapter import (
     maf_runtime_info,
 )
 from mas_experiment.orchestrations import (
+    prepare_initial_state,
     run_dynamic,
     run_independent,
     run_round_robin,
+    validate_initial_state,
 )
 from mas_experiment.providers import (
     DeepSeekSettings,
@@ -36,6 +38,14 @@ from mas_experiment.traces import append_result, read_results
 
 
 app = typer.Typer(no_args_is_help=True)
+
+
+class FormalPilotCounts(NamedTuple):
+    connectivity: int
+    shared_initialization: int
+    follow_up: int
+    discussion: int
+    logical_slots: int
 
 
 def create_formal_provider(provider_name: str) -> Any:
@@ -63,7 +73,7 @@ async def _run_formal_pilot(
     output: Path,
     seed: int,
     skip_connectivity: bool,
-) -> tuple[int, int]:
+) -> FormalPilotCounts:
     provider = create_formal_provider(provider_name)
     connectivity_requests = 0
     if provider_name == "deepseek" and not skip_connectivity:
@@ -78,6 +88,18 @@ async def _run_formal_pilot(
             probe.provider_metadata.get("api_requests", 1)
         )
 
+    initial_state = await prepare_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=seed,
+    )
+    validate_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        initial_state,
+    )
+
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("", encoding="utf-8")
     runners = (
@@ -91,6 +113,7 @@ async def _run_formal_pilot(
             FORMAL_PILOT_ROLES,
             provider,
             seed=seed,
+            initial_state=initial_state,
         )
         append_result(output, result)
         if len(result.responses) != 9 or result.errors:
@@ -107,18 +130,39 @@ async def _run_formal_pilot(
         encoding="utf-8",
         newline="\n",
     )
-    discussion_requests = sum(
+    shared_initialization_requests = max(
         int(
-            response.get("provider_metadata", {}).get(
-                "api_requests",
+            record.get("metadata", {}).get(
+                "shared_initialization_api_requests",
                 0,
             )
             or 0
         )
         for record in records
-        for response in record["responses"]
     )
-    return connectivity_requests, discussion_requests
+    follow_up_requests = sum(
+        int(
+            record.get("metadata", {}).get(
+                "mode_follow_up_api_requests",
+                0,
+            )
+            or 0
+        )
+        for record in records
+    )
+    discussion_requests = (
+        shared_initialization_requests + follow_up_requests
+    )
+    logical_response_slots = sum(
+        len(record["responses"]) for record in records
+    )
+    return FormalPilotCounts(
+        connectivity=connectivity_requests,
+        shared_initialization=shared_initialization_requests,
+        follow_up=follow_up_requests,
+        discussion=discussion_requests,
+        logical_slots=logical_response_slots,
+    )
 
 
 async def _run_experiments(
@@ -237,7 +281,7 @@ def formal_pilot_command(
         raise typer.BadParameter(
             f"output already exists: {output}"
         )
-    connectivity, discussion = asyncio.run(
+    counts = asyncio.run(
         _run_formal_pilot(
             provider_name=provider,
             output=output,
@@ -248,8 +292,12 @@ def formal_pilot_command(
     typer.echo(
         f"Completed formal pilot -> {output}; "
         f"report -> {output.with_suffix('.md')}; "
-        f"connectivity API requests={connectivity}; "
-        f"discussion API requests={discussion}"
+        f"connectivity API requests={counts.connectivity}; "
+        "shared initialization API requests="
+        f"{counts.shared_initialization}; "
+        f"follow-up API requests={counts.follow_up}; "
+        f"discussion API requests={counts.discussion}; "
+        f"logical response slots={counts.logical_slots}"
     )
 
 

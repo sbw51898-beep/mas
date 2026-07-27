@@ -53,3 +53,61 @@ def test_report_separates_observations_from_research_claims() -> None:
     assert "FM-2.6" in report
     assert "## 研究结论限制" in report
     assert "不能据此认定" in report
+
+
+def test_report_counts_shared_initial_requests_once() -> None:
+    shared = {
+        "response_id": "shared-a",
+        "provider_metadata": {
+            "api_requests": 2,
+            "repair_requests": 1,
+        },
+    }
+    first = {
+        **FIXTURE_RESULTS[0],
+        "responses": [
+            shared,
+            {
+                "response_id": "follow-up-1",
+                "provider_metadata": {
+                    "api_requests": 1,
+                    "repair_requests": 0,
+                },
+            },
+        ],
+        "metadata": {
+            "initial_state_id": "initial-1",
+            "shared_initialization_api_requests": 2,
+            "shared_initialization_repair_requests": 1,
+            "mode_follow_up_api_requests": 1,
+            "mode_follow_up_repair_requests": 0,
+        },
+    }
+    second = {
+        **FIXTURE_RESULTS[0],
+        "mode": "round_robin",
+        "responses": [
+            shared,
+            {
+                "response_id": "follow-up-2",
+                "provider_metadata": {
+                    "api_requests": 1,
+                    "repair_requests": 0,
+                },
+            },
+        ],
+        "metadata": {
+            "initial_state_id": "initial-1",
+            "shared_initialization_api_requests": 2,
+            "shared_initialization_repair_requests": 1,
+            "mode_follow_up_api_requests": 1,
+            "mode_follow_up_repair_requests": 0,
+        },
+    }
+
+    report = build_pilot_report([first, second])
+
+    assert "讨论阶段实际API请求：4" in report
+    assert "格式修复请求：1" in report
+    assert "逻辑响应位置：4" in report
+    assert "initial-1" in report
