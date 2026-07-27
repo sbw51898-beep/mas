@@ -4,11 +4,16 @@ import asyncio
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
-from mas_experiment.datasets import AGENT_ROLES, QUESTIONS
+from mas_experiment.datasets import (
+    AGENT_ROLES,
+    FORMAL_PILOT_QUESTION,
+    FORMAL_PILOT_ROLES,
+    QUESTIONS,
+)
 from mas_experiment.maf_adapter import (
     MAFModelProvider,
     build_maf_concurrent,
@@ -22,13 +27,98 @@ from mas_experiment.orchestrations import (
     run_round_robin,
 )
 from mas_experiment.providers import (
+    DeepSeekSettings,
     DeterministicProvider,
     OpenAICompatibleSettings,
 )
+from mas_experiment.reporting import build_pilot_report
 from mas_experiment.traces import append_result, read_results
 
 
 app = typer.Typer(no_args_is_help=True)
+
+
+def create_formal_provider(provider_name: str) -> Any:
+    if provider_name == "offline":
+        return DeterministicProvider()
+    if provider_name == "deepseek":
+        settings = DeepSeekSettings.from_env()
+        agents = create_maf_agents(settings, FORMAL_PILOT_ROLES)
+        return MAFModelProvider(
+            {
+                role.agent_id: agent
+                for role, agent in zip(
+                    FORMAL_PILOT_ROLES,
+                    agents,
+                    strict=True,
+                )
+            }
+        )
+    raise typer.BadParameter("provider must be deepseek or offline")
+
+
+async def _run_formal_pilot(
+    *,
+    provider_name: str,
+    output: Path,
+    seed: int,
+    skip_connectivity: bool,
+) -> tuple[int, int]:
+    provider = create_formal_provider(provider_name)
+    connectivity_requests = 0
+    if provider_name == "deepseek" and not skip_connectivity:
+        probe = await provider.generate(
+            question=FORMAL_PILOT_QUESTION,
+            role=FORMAL_PILOT_ROLES[0],
+            round_index=0,
+            visible_messages=(),
+            seed=seed,
+        )
+        connectivity_requests = int(
+            probe.provider_metadata.get("api_requests", 1)
+        )
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("", encoding="utf-8")
+    runners = (
+        run_independent,
+        run_round_robin,
+        run_dynamic,
+    )
+    for runner in runners:
+        result = await runner(
+            FORMAL_PILOT_QUESTION,
+            FORMAL_PILOT_ROLES,
+            provider,
+            seed=seed,
+        )
+        append_result(output, result)
+        if len(result.responses) != 9 or result.errors:
+            raise RuntimeError(
+                f"{result.mode} incomplete: "
+                f"{len(result.responses)} responses, "
+                f"errors={list(result.errors)}"
+            )
+
+    records = read_results(output)
+    report_path = output.with_suffix(".md")
+    report_path.write_text(
+        build_pilot_report(records),
+        encoding="utf-8",
+        newline="\n",
+    )
+    discussion_requests = sum(
+        int(
+            response.get("provider_metadata", {}).get(
+                "api_requests",
+                0,
+            )
+            or 0
+        )
+        for record in records
+        for response in record["responses"]
+    )
+    return connectivity_requests, discussion_requests
 
 
 async def _run_experiments(
@@ -121,6 +211,46 @@ def run_command(
         )
     )
     typer.echo(f"Completed {completed} records -> {output}")
+
+
+@app.command("formal-pilot")
+def formal_pilot_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination JSONL file."),
+    ] = Path("artifacts/deepseek-formal-pilot.jsonl"),
+    provider: Annotated[
+        str,
+        typer.Option(help="deepseek or offline"),
+    ] = "deepseek",
+    seed: Annotated[int, typer.Option()] = 20260727,
+    skip_connectivity: Annotated[
+        bool,
+        typer.Option(help="Skip the uncounted connectivity probe."),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(help="Replace an existing output file."),
+    ] = False,
+) -> None:
+    if output.exists() and not overwrite:
+        raise typer.BadParameter(
+            f"output already exists: {output}"
+        )
+    connectivity, discussion = asyncio.run(
+        _run_formal_pilot(
+            provider_name=provider,
+            output=output,
+            seed=seed,
+            skip_connectivity=skip_connectivity,
+        )
+    )
+    typer.echo(
+        f"Completed formal pilot -> {output}; "
+        f"report -> {output.with_suffix('.md')}; "
+        f"connectivity API requests={connectivity}; "
+        f"discussion API requests={discussion}"
+    )
 
 
 @app.command("summarize")

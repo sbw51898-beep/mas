@@ -50,3 +50,50 @@ def test_cli_summary_reports_each_mode(tmp_path) -> None:
     assert "round_robin" in result.output
     assert "dynamic" in result.output
     assert "30 records" in result.output
+
+
+def test_formal_pilot_writes_three_complete_mode_records(tmp_path) -> None:
+    output = tmp_path / "pilot.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "formal-pilot",
+            "--provider",
+            "offline",
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    records = read_results(output)
+    assert {record["mode"] for record in records} == {
+        "independent",
+        "round_robin",
+        "dynamic",
+    }
+    assert all(len(record["responses"]) == 9 for record in records)
+    assert output.with_suffix(".md").exists()
+
+
+def test_formal_pilot_refuses_to_overwrite_existing_output(tmp_path) -> None:
+    output = tmp_path / "pilot.jsonl"
+    output.write_text("existing", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "formal-pilot",
+            "--provider",
+            "offline",
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "already exists" in result.output
+    assert output.read_text(encoding="utf-8") == "existing"
