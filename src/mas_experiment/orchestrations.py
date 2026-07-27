@@ -21,7 +21,11 @@ from mas_experiment.selectors import score_candidates
 from mas_experiment.voting import NoValidAnswerError, majority_vote
 
 
-def _prompt_for(question: Question, visible_messages: Sequence[Message]) -> str:
+def _prompt_for(
+    question: Question,
+    role: AgentRole,
+    visible_messages: Sequence[Message],
+) -> str:
     options = "\n".join(
         f"{label}. {text}" for label, text in question.options.items()
     )
@@ -31,6 +35,8 @@ def _prompt_for(question: Question, visible_messages: Sequence[Message]) -> str:
     history_section = history if history else "(no prior public messages)"
     return (
         f"Public task context:\n{question.public_context or '(none)'}\n\n"
+        f"Your private information:\n"
+        f"{question.private_context_for(role.agent_id) or '(none)'}\n\n"
         f"Question: {question.prompt}\n{options}\n\n"
         f"Public discussion:\n{history_section}\n\n"
         "Return JSON with answer, probabilities for every option summing "
@@ -130,18 +136,18 @@ def _build_result(
             "project_version": __version__,
             "python_version": platform.python_version(),
             "engine": "framework-independent-core",
-            "single_round_baseline": mode == "concurrent",
+            "equal_budget_calls": 9,
         },
     )
 
 
-async def run_concurrent(
+async def _initial_stage(
     question: Question,
     roles: tuple[AgentRole, ...],
     provider: ModelProvider,
     *,
     seed: int,
-) -> ExperimentResult:
+) -> tuple[list[Message], list[AgentResponse], list[str]]:
     visible_messages: tuple[Message, ...] = ()
     calls = [
         provider.generate(
@@ -162,19 +168,80 @@ async def run_concurrent(
             errors.append(f"{role.agent_id}: {type(outcome).__name__}: {outcome}")
             continue
         responses.append(outcome)
-        prompt = _prompt_for(question, visible_messages)
+        prompt = _prompt_for(question, role, visible_messages)
         messages.append(
             _message_for(
-                mode="concurrent",
+                mode="initial",
                 index=len(messages),
                 response=outcome,
                 visible_messages=visible_messages,
                 user_prompt=prompt,
             )
         )
+    return messages, responses, errors
+
+
+async def run_independent(
+    question: Question,
+    roles: tuple[AgentRole, ...],
+    provider: ModelProvider,
+    *,
+    seed: int,
+) -> ExperimentResult:
+    messages, responses, errors = await _initial_stage(
+        question,
+        roles,
+        provider,
+        seed=seed,
+    )
+    latest = _latest_by_agent(responses)
+    self_histories = {
+        role.agent_id: [
+            message
+            for message in messages
+            if message.speaker == role.agent_id
+        ]
+        for role in roles
+    }
+
+    for round_index in (1, 2):
+        calls = [
+            provider.generate(
+                question=question,
+                role=role,
+                round_index=round_index,
+                visible_messages=tuple(self_histories[role.agent_id]),
+                seed=seed,
+            )
+            for role in roles
+        ]
+        outcomes = await asyncio.gather(*calls, return_exceptions=True)
+        for role, outcome in zip(roles, outcomes, strict=True):
+            if isinstance(outcome, BaseException):
+                errors.append(
+                    f"{role.agent_id}: {type(outcome).__name__}: {outcome}"
+                )
+                continue
+            response = _with_change_flag(
+                outcome,
+                latest.get(role.agent_id),
+            )
+            latest[role.agent_id] = response
+            visible = tuple(self_histories[role.agent_id])
+            message = _message_for(
+                mode="independent",
+                index=len(messages),
+                response=response,
+                visible_messages=visible,
+                user_prompt=_prompt_for(question, role, visible),
+            )
+            responses.append(response)
+            messages.append(message)
+            self_histories[role.agent_id].append(message)
+
     return _build_result(
         question=question,
-        mode="concurrent",
+        mode="independent",
         roles=roles,
         messages=messages,
         responses=responses,
@@ -184,22 +251,40 @@ async def run_concurrent(
     )
 
 
+async def run_concurrent(
+    question: Question,
+    roles: tuple[AgentRole, ...],
+    provider: ModelProvider,
+    *,
+    seed: int,
+) -> ExperimentResult:
+    """Compatibility alias for the equal-budget independent baseline."""
+    return await run_independent(
+        question,
+        roles,
+        provider,
+        seed=seed,
+    )
+
+
 async def run_round_robin(
     question: Question,
     roles: tuple[AgentRole, ...],
     provider: ModelProvider,
     *,
-    rounds: int,
     seed: int,
 ) -> ExperimentResult:
-    messages: list[Message] = []
-    responses: list[AgentResponse] = []
-    latest: dict[str, AgentResponse] = {}
-    errors: list[str] = []
-    for round_index in range(rounds):
+    messages, responses, errors = await _initial_stage(
+        question,
+        roles,
+        provider,
+        seed=seed,
+    )
+    latest = _latest_by_agent(responses)
+    for round_index in (1, 2):
         for role in roles:
             visible = tuple(messages)
-            prompt = _prompt_for(question, visible)
+            prompt = _prompt_for(question, role, visible)
             try:
                 response = await provider.generate(
                     question=question,
@@ -242,19 +327,25 @@ async def run_dynamic(
     roles: tuple[AgentRole, ...],
     provider: ModelProvider,
     *,
-    turns: int,
     seed: int,
 ) -> ExperimentResult:
     roles_by_id = {role.agent_id: role for role in roles}
     agent_ids = tuple(roles_by_id)
-    messages: list[Message] = []
-    responses: list[AgentResponse] = []
-    latest: dict[str, AgentResponse] = {}
-    last_spoken_steps: dict[str, int] = {}
+    messages, responses, errors = await _initial_stage(
+        question,
+        roles,
+        provider,
+        seed=seed,
+    )
+    latest = _latest_by_agent(responses)
+    last_spoken_steps = {
+        role.agent_id: index
+        for index, role in enumerate(roles)
+        if role.agent_id in latest
+    }
     selection_history: list[SelectionScore] = []
-    errors: list[str] = []
 
-    for step in range(turns):
+    for step in range(3, 9):
         scores = score_candidates(
             agent_ids=agent_ids,
             latest_responses=latest,
@@ -271,7 +362,7 @@ async def run_dynamic(
         last_spoken_steps[selected_agent] = step
         role = roles_by_id[selected_agent]
         visible = tuple(messages)
-        prompt = _prompt_for(question, visible)
+        prompt = _prompt_for(question, role, visible)
         round_index = sum(
             response.agent_id == selected_agent for response in responses
         )

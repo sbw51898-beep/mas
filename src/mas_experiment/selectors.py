@@ -1,18 +1,7 @@
 from __future__ import annotations
 
-from collections import Counter
-
+from mas_experiment.beliefs import js_divergence, pool_probabilities
 from mas_experiment.domain import AgentResponse, SelectionScore
-
-
-def _majority_answer(
-    latest_responses: dict[str, AgentResponse],
-) -> str | None:
-    if not latest_responses:
-        return None
-    counts = Counter(response.answer for response in latest_responses.values())
-    highest = max(counts.values())
-    return min(answer for answer, count in counts.items() if count == highest)
 
 
 def score_candidates(
@@ -22,7 +11,16 @@ def score_candidates(
     last_spoken_steps: dict[str, int],
     current_step: int,
 ) -> tuple[SelectionScore, ...]:
-    majority = _majority_answer(latest_responses)
+    pooled_probabilities: dict[str, float] | None = None
+    if latest_responses:
+        first = next(iter(latest_responses.values()))
+        pooled_probabilities, _, _ = pool_probabilities(
+            {
+                agent_id: response.probabilities
+                for agent_id, response in latest_responses.items()
+            },
+            tuple(first.probabilities),
+        )
     waits = {
         agent_id: max(0, current_step - last_spoken_steps[agent_id])
         for agent_id in agent_ids
@@ -38,8 +36,9 @@ def score_candidates(
             disagreement = 1.0
             uncertainty = 1.0
         else:
-            disagreement = float(
-                majority is None or previous.answer != majority
+            disagreement = js_divergence(
+                previous.probabilities,
+                pooled_probabilities or previous.probabilities,
             )
             uncertainty = 1.0 - previous.confidence
 

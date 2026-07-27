@@ -13,9 +13,10 @@ def response(
     agent_id: str,
     *,
     confidence: float = 0.8,
+    probabilities: dict[str, float] | None = None,
 ) -> AgentResponse:
     other_probability = (1.0 - confidence) / 3
-    probabilities = {
+    selected_probabilities = probabilities or {
         option: (confidence if option == answer else other_probability)
         for option in ("A", "B", "C", "D")
     }
@@ -24,7 +25,7 @@ def response(
         agent_id=agent_id,
         round_index=0,
         answer=answer,
-        probabilities=probabilities,
+        probabilities=selected_probabilities,
         reasoning="A reason.",
         raw_text="{}",
         changed_from_previous=False,
@@ -48,20 +49,35 @@ def test_unseen_agents_start_with_maximum_score() -> None:
 
 
 def test_selector_prefers_disagreement_when_other_factors_are_equal() -> None:
-    chosen = select_next_speaker(
+    scores = score_candidates(
         agent_ids=("agent-a", "agent-b", "agent-c"),
         latest_responses={
-            "agent-a": response("A", "agent-a"),
-            "agent-b": response("A", "agent-b"),
-            "agent-c": response("B", "agent-c"),
+            "agent-a": response(
+                "A",
+                "agent-a",
+                probabilities={"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.1},
+            ),
+            "agent-b": response(
+                "A",
+                "agent-b",
+                probabilities={"A": 0.7, "B": 0.1, "C": 0.1, "D": 0.1},
+            ),
+            "agent-c": response(
+                "B",
+                "agent-c",
+                probabilities={"A": 0.1, "B": 0.7, "C": 0.1, "D": 0.1},
+            ),
         },
         last_spoken_steps={"agent-a": 0, "agent-b": 0, "agent-c": 0},
         current_step=1,
     )
 
-    assert chosen.agent_id == "agent-c"
-    assert chosen.disagreement == 1.0
-    assert chosen.selected is True
+    by_agent = {score.agent_id: score for score in scores}
+    assert scores[0].agent_id == "agent-c"
+    assert (
+        by_agent["agent-c"].disagreement
+        > by_agent["agent-a"].disagreement
+    )
 
 
 def test_selector_uses_waiting_time_when_answers_and_confidence_match() -> None:

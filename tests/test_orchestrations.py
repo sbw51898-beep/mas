@@ -5,7 +5,12 @@ from datetime import datetime, timezone
 
 import pytest
 
-from mas_experiment.datasets import AGENT_ROLES, QUESTIONS
+from mas_experiment.datasets import (
+    AGENT_ROLES,
+    FORMAL_PILOT_QUESTION,
+    FORMAL_PILOT_ROLES,
+    QUESTIONS,
+)
 from mas_experiment.domain import (
     AgentResponse,
     AgentRole,
@@ -14,8 +19,8 @@ from mas_experiment.domain import (
     Question,
 )
 from mas_experiment.orchestrations import (
-    run_concurrent,
     run_dynamic,
+    run_independent,
     run_round_robin,
 )
 from mas_experiment.providers import DeterministicProvider
@@ -24,6 +29,11 @@ from mas_experiment.providers import DeterministicProvider
 class RecordingProvider:
     def __init__(self) -> None:
         self.visible_histories: list[tuple[str, ...]] = []
+        self.calls: list[tuple[str, tuple[Message, ...]]] = []
+
+    @property
+    def call_count(self) -> int:
+        return len(self.calls)
 
     async def generate(
         self,
@@ -36,6 +46,7 @@ class RecordingProvider:
     ) -> AgentResponse:
         visible_ids = tuple(message.message_id for message in visible_messages)
         self.visible_histories.append(visible_ids)
+        self.calls.append((role.agent_id, visible_messages))
         answer = question.options.keys().__iter__().__next__()
         payload = {
             "answer": answer,
@@ -59,17 +70,56 @@ class RecordingProvider:
 
 
 @pytest.mark.asyncio
-async def test_concurrent_agents_see_no_peer_messages() -> None:
+@pytest.mark.parametrize(
+    "runner",
+    [run_independent, run_round_robin, run_dynamic],
+)
+async def test_every_mode_uses_exactly_nine_discussion_calls(runner) -> None:
     provider = RecordingProvider()
 
-    result = await run_concurrent(
-        QUESTIONS[0], AGENT_ROLES, provider, seed=20260727
+    result = await runner(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
     )
 
     assert isinstance(result, ExperimentResult)
-    assert provider.visible_histories == [(), (), ()]
-    assert all(message.visible_history_ids == () for message in result.messages)
-    assert len(result.responses) == 3
+    assert provider.call_count == 9
+    assert len(result.responses) == 9
+
+
+@pytest.mark.asyncio
+async def test_initial_three_calls_are_mutually_invisible() -> None:
+    provider = RecordingProvider()
+
+    await run_dynamic(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+    )
+
+    assert provider.visible_histories[:3] == [(), (), ()]
+
+
+@pytest.mark.asyncio
+async def test_independent_mode_sees_only_same_agent_history() -> None:
+    provider = RecordingProvider()
+
+    await run_independent(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+    )
+
+    for agent_id, visible_messages in provider.calls[3:]:
+        assert visible_messages
+        assert all(
+            message.speaker == agent_id
+            for message in visible_messages
+        )
 
 
 @pytest.mark.asyncio
@@ -77,30 +127,34 @@ async def test_round_robin_visibility_grows_after_each_turn() -> None:
     provider = RecordingProvider()
 
     result = await run_round_robin(
-        QUESTIONS[0], AGENT_ROLES, provider, rounds=1, seed=20260727
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
     )
 
-    assert [len(ids) for ids in provider.visible_histories] == [0, 1, 2]
+    assert [len(ids) for ids in provider.visible_histories] == [
+        0, 0, 0, 3, 4, 5, 6, 7, 8
+    ]
     assert [len(message.visible_history_ids) for message in result.messages] == [
-        0,
-        1,
-        2,
+        0, 0, 0, 3, 4, 5, 6, 7, 8
     ]
 
 
 @pytest.mark.asyncio
 async def test_dynamic_records_all_scores_and_one_selection_per_turn() -> None:
     result = await run_dynamic(
-        QUESTIONS[0],
-        AGENT_ROLES,
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
         DeterministicProvider(),
-        turns=9,
         seed=20260727,
     )
 
     assert len(result.messages) == 9
-    assert len(result.selection_scores) == 27
-    for step in range(9):
+    assert len(result.selection_scores) == 18
+    steps = sorted({score.step for score in result.selection_scores})
+    assert len(steps) == 6
+    for step in steps:
         step_scores = [
             score for score in result.selection_scores if score.step == step
         ]
@@ -113,10 +167,10 @@ async def test_offline_trajectory_is_reproducible_for_same_seed() -> None:
     provider = DeterministicProvider()
 
     first = await run_dynamic(
-        QUESTIONS[0], AGENT_ROLES, provider, turns=4, seed=7
+        QUESTIONS[0], AGENT_ROLES, provider, seed=7
     )
     second = await run_dynamic(
-        QUESTIONS[0], AGENT_ROLES, provider, turns=4, seed=7
+        QUESTIONS[0], AGENT_ROLES, provider, seed=7
     )
 
     assert first.messages == second.messages

@@ -113,6 +113,34 @@ def generalized_js_disagreement(
     return min(1.0, max(0.0, raw / denominator))
 
 
+def js_divergence(
+    left: Mapping[str, float],
+    right: Mapping[str, float],
+) -> float:
+    if set(left) != set(right):
+        raise ValueError("probability vectors must have identical options")
+    midpoint = {
+        option: (left[option] + right[option]) / 2.0
+        for option in left
+    }
+
+    def kl_divergence(
+        source: Mapping[str, float],
+        target: Mapping[str, float],
+    ) -> float:
+        return sum(
+            probability * math.log(probability / target[option])
+            for option, probability in source.items()
+            if probability > 0.0
+        )
+
+    raw = 0.5 * (
+        kl_divergence(left, midpoint)
+        + kl_divergence(right, midpoint)
+    )
+    return min(1.0, max(0.0, raw / math.log(2.0)))
+
+
 def brier_score(
     probabilities: Mapping[str, float],
     *,

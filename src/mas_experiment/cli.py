@@ -17,8 +17,8 @@ from mas_experiment.maf_adapter import (
     maf_runtime_info,
 )
 from mas_experiment.orchestrations import (
-    run_concurrent,
     run_dynamic,
+    run_independent,
     run_round_robin,
 )
 from mas_experiment.providers import (
@@ -53,16 +53,17 @@ async def _run_experiments(
         )
 
     selected_modes = (
-        ("concurrent", "round_robin", "dynamic")
+        ("independent", "round_robin", "dynamic")
         if mode == "all"
         else (mode,)
     )
     if any(
-        selected not in {"concurrent", "round_robin", "dynamic"}
+        selected
+        not in {"concurrent", "independent", "round_robin", "dynamic"}
         for selected in selected_modes
     ):
         raise typer.BadParameter(
-            "mode must be all, concurrent, round_robin, or dynamic"
+            "mode must be all, independent, round_robin, or dynamic"
         )
 
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -70,8 +71,8 @@ async def _run_experiments(
     completed = 0
     for question in QUESTIONS[:limit]:
         for selected_mode in selected_modes:
-            if selected_mode == "concurrent":
-                result = await run_concurrent(
+            if selected_mode in {"concurrent", "independent"}:
+                result = await run_independent(
                     question, AGENT_ROLES, provider, seed=seed
                 )
             elif selected_mode == "round_robin":
@@ -79,7 +80,6 @@ async def _run_experiments(
                     question,
                     AGENT_ROLES,
                     provider,
-                    rounds=3,
                     seed=seed,
                 )
             else:
@@ -87,7 +87,6 @@ async def _run_experiments(
                     question,
                     AGENT_ROLES,
                     provider,
-                    turns=9,
                     seed=seed,
                 )
             append_result(output, result)
@@ -107,7 +106,7 @@ def run_command(
     ] = "offline",
     mode: Annotated[
         str,
-        typer.Option(help="all, concurrent, round_robin, or dynamic"),
+        typer.Option(help="all, independent, round_robin, or dynamic"),
     ] = "all",
     seed: Annotated[int, typer.Option()] = 20260727,
     limit: Annotated[int, typer.Option(min=1, max=10)] = 10,

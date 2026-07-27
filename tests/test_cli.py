@@ -29,7 +29,7 @@ def test_cli_offline_run_creates_thirty_records(tmp_path) -> None:
     records = read_results(output)
     assert len(records) == 30
     assert {record["mode"] for record in records} == {
-        "concurrent",
+        "independent",
         "round_robin",
         "dynamic",
     }
@@ -46,7 +46,7 @@ def test_cli_summary_reports_each_mode(tmp_path) -> None:
     result = runner.invoke(app, ["summarize", str(output)])
 
     assert result.exit_code == 0, result.output
-    assert "concurrent" in result.output
+    assert "independent" in result.output
     assert "round_robin" in result.output
     assert "dynamic" in result.output
     assert "30 records" in result.output
