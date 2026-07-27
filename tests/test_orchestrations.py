@@ -195,6 +195,68 @@ async def test_validate_initial_state_rejects_incomplete_probabilities() -> None
 
 
 @pytest.mark.asyncio
+async def test_three_modes_reuse_one_initial_state_without_provider_calls() -> None:
+    preparation_provider = RecordingProvider()
+    state = await prepare_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        preparation_provider,
+        seed=20260727,
+    )
+    mode_provider = RecordingProvider()
+
+    results = [
+        await runner(
+            FORMAL_PILOT_QUESTION,
+            FORMAL_PILOT_ROLES,
+            mode_provider,
+            seed=20260727,
+            initial_state=state,
+        )
+        for runner in (run_independent, run_round_robin, run_dynamic)
+    ]
+
+    assert preparation_provider.call_count == 3
+    assert mode_provider.call_count == 18
+    assert all(len(result.responses) == 9 for result in results)
+    assert all(
+        result.responses[:3] == state.responses
+        for result in results
+    )
+    assert all(
+        result.metadata["initial_state_id"]
+        == state.initial_state_id
+        for result in results
+    )
+    assert all(
+        result.metadata["shared_initial_state"] is True
+        for result in results
+    )
+
+
+@pytest.mark.asyncio
+async def test_runner_reuse_does_not_mutate_initial_state() -> None:
+    provider = RecordingProvider()
+    state = await prepare_initial_state(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+    )
+    original = state.model_dump(mode="json")
+
+    await run_round_robin(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        provider,
+        seed=20260727,
+        initial_state=state,
+    )
+
+    assert state.model_dump(mode="json") == original
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "runner",
     [run_independent, run_round_robin, run_dynamic],

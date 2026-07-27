@@ -95,6 +95,8 @@ def _build_result(
     messages: Sequence[Message],
     responses: Sequence[AgentResponse],
     selection_scores: Sequence[SelectionScore],
+    initial_state: InitialState,
+    shared_initial_state: bool,
     seed: int,
     errors: Sequence[str],
 ) -> ExperimentResult:
@@ -143,6 +145,23 @@ def _build_result(
             "python_version": platform.python_version(),
             "engine": "framework-independent-core",
             "equal_budget_calls": 9,
+            "shared_initialization_api_requests": sum(
+                int(
+                    response.provider_metadata.get("api_requests", 0)
+                    or 0
+                )
+                for response in initial_state.responses
+            ),
+            "mode_follow_up_api_requests": sum(
+                int(
+                    response.provider_metadata.get("api_requests", 0)
+                    or 0
+                )
+                for response in responses[len(initial_state.responses):]
+            ),
+            "initial_state_id": initial_state.initial_state_id,
+            "shared_initial_state": shared_initial_state,
+            "logical_response_count": len(responses),
         },
     )
 
@@ -266,22 +285,48 @@ def validate_initial_state(
         )
 
 
+async def _resolve_initial_state(
+    question: Question,
+    roles: tuple[AgentRole, ...],
+    provider: ModelProvider,
+    *,
+    seed: int,
+    initial_state: InitialState | None,
+) -> tuple[list[Message], list[AgentResponse], InitialState, bool]:
+    shared = initial_state is not None
+    state = initial_state or await prepare_initial_state(
+        question,
+        roles,
+        provider,
+        seed=seed,
+    )
+    validate_initial_state(question, roles, state)
+    return (
+        list(state.messages),
+        list(state.responses),
+        state,
+        shared,
+    )
+
+
 async def run_independent(
     question: Question,
     roles: tuple[AgentRole, ...],
     provider: ModelProvider,
     *,
     seed: int,
+    initial_state: InitialState | None = None,
 ) -> ExperimentResult:
-    initial_state = await prepare_initial_state(
-        question,
-        roles,
-        provider,
-        seed=seed,
+    messages, responses, resolved_initial_state, shared = (
+        await _resolve_initial_state(
+            question,
+            roles,
+            provider,
+            seed=seed,
+            initial_state=initial_state,
+        )
     )
-    messages = list(initial_state.messages)
-    responses = list(initial_state.responses)
-    errors = list(initial_state.errors)
+    errors = list(resolved_initial_state.errors)
     latest = _latest_by_agent(responses)
     self_histories = {
         role.agent_id: [
@@ -334,6 +379,8 @@ async def run_independent(
         messages=messages,
         responses=responses,
         selection_scores=(),
+        initial_state=resolved_initial_state,
+        shared_initial_state=shared,
         seed=seed,
         errors=errors,
     )
@@ -345,6 +392,7 @@ async def run_concurrent(
     provider: ModelProvider,
     *,
     seed: int,
+    initial_state: InitialState | None = None,
 ) -> ExperimentResult:
     """Compatibility alias for the equal-budget independent baseline."""
     return await run_independent(
@@ -352,6 +400,7 @@ async def run_concurrent(
         roles,
         provider,
         seed=seed,
+        initial_state=initial_state,
     )
 
 
@@ -361,16 +410,18 @@ async def run_round_robin(
     provider: ModelProvider,
     *,
     seed: int,
+    initial_state: InitialState | None = None,
 ) -> ExperimentResult:
-    initial_state = await prepare_initial_state(
-        question,
-        roles,
-        provider,
-        seed=seed,
+    messages, responses, resolved_initial_state, shared = (
+        await _resolve_initial_state(
+            question,
+            roles,
+            provider,
+            seed=seed,
+            initial_state=initial_state,
+        )
     )
-    messages = list(initial_state.messages)
-    responses = list(initial_state.responses)
-    errors = list(initial_state.errors)
+    errors = list(resolved_initial_state.errors)
     latest = _latest_by_agent(responses)
     for round_index in (1, 2):
         for role in roles:
@@ -408,6 +459,8 @@ async def run_round_robin(
         messages=messages,
         responses=responses,
         selection_scores=(),
+        initial_state=resolved_initial_state,
+        shared_initial_state=shared,
         seed=seed,
         errors=errors,
     )
@@ -419,18 +472,20 @@ async def run_dynamic(
     provider: ModelProvider,
     *,
     seed: int,
+    initial_state: InitialState | None = None,
 ) -> ExperimentResult:
     roles_by_id = {role.agent_id: role for role in roles}
     agent_ids = tuple(roles_by_id)
-    initial_state = await prepare_initial_state(
-        question,
-        roles,
-        provider,
-        seed=seed,
+    messages, responses, resolved_initial_state, shared = (
+        await _resolve_initial_state(
+            question,
+            roles,
+            provider,
+            seed=seed,
+            initial_state=initial_state,
+        )
     )
-    messages = list(initial_state.messages)
-    responses = list(initial_state.responses)
-    errors = list(initial_state.errors)
+    errors = list(resolved_initial_state.errors)
     latest = _latest_by_agent(responses)
     last_spoken_steps = {
         role.agent_id: index
@@ -493,6 +548,8 @@ async def run_dynamic(
         messages=messages,
         responses=responses,
         selection_scores=selection_history,
+        initial_state=resolved_initial_state,
+        shared_initial_state=shared,
         seed=seed,
         errors=errors,
     )
