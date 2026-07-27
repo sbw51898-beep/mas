@@ -30,6 +30,7 @@ def _prompt_for(question: Question, visible_messages: Sequence[Message]) -> str:
     )
     history_section = history if history else "(no prior public messages)"
     return (
+        f"Public task context:\n{question.public_context or '(none)'}\n\n"
         f"Question: {question.prompt}\n{options}\n\n"
         f"Public discussion:\n{history_section}\n\n"
         "Return JSON with answer, probabilities for every option summing "

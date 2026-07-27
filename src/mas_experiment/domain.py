@@ -21,12 +21,17 @@ class Question(BaseModel):
     prompt: str
     options: dict[str, str]
     correct_answer: str
+    public_context: str = ""
+    private_contexts: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_correct_answer(self) -> Question:
         if self.correct_answer not in self.options:
             raise ValueError("correct_answer must be one of the question options")
         return self
+
+    def private_context_for(self, agent_id: str) -> str:
+        return self.private_contexts.get(agent_id, "")
 
 
 class AgentRole(BaseModel):

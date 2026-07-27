@@ -5,7 +5,12 @@ from types import SimpleNamespace
 import pytest
 from pydantic import SecretStr
 
-from mas_experiment.datasets import AGENT_ROLES, QUESTIONS
+from mas_experiment.datasets import (
+    AGENT_ROLES,
+    FORMAL_PILOT_QUESTION,
+    FORMAL_PILOT_ROLES,
+    QUESTIONS,
+)
 from mas_experiment.maf_adapter import (
     MAFModelProvider,
     build_maf_concurrent,
@@ -71,3 +76,35 @@ async def test_maf_model_provider_parses_structured_agent_response() -> None:
     assert response.confidence == pytest.approx(0.9)
     assert response.probabilities["B"] == pytest.approx(0.9)
     assert response.reasoning == "7 x 8 = 56"
+
+
+@pytest.mark.asyncio
+async def test_prompt_contains_only_the_selected_agents_private_context() -> None:
+    class CapturingAgent:
+        prompt = ""
+
+        async def run(self, prompt: str) -> SimpleNamespace:
+            self.prompt = prompt
+            return SimpleNamespace(
+                text=(
+                    '{"answer":"A","probabilities":'
+                    '{"A":0.7,"B":0.1,"C":0.1,"D":0.1},'
+                    '"reasoning":"Reliability favors A."}'
+                )
+            )
+
+    agent = CapturingAgent()
+    provider = MAFModelProvider({"agent-a": agent})
+
+    await provider.generate(
+        question=FORMAL_PILOT_QUESTION,
+        role=FORMAL_PILOT_ROLES[0],
+        round_index=0,
+        visible_messages=(),
+        seed=20260727,
+    )
+
+    assert "Reliability scores: A=95, B=75, C=85, D=65" in agent.prompt
+    assert "Security scores:" not in agent.prompt
+    assert "Cost advantage scores:" not in agent.prompt
+    assert "correct answer" not in agent.prompt.lower()

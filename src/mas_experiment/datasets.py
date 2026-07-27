@@ -3,6 +3,83 @@ from __future__ import annotations
 from mas_experiment.domain import AgentRole, Question
 
 
+SUPPLIER_WEIGHTS = {
+    "reliability": 0.40,
+    "security": 0.35,
+    "cost": 0.25,
+}
+
+SUPPLIER_SCORES = {
+    "reliability": {"A": 95, "B": 75, "C": 85, "D": 65},
+    "security": {"A": 55, "B": 95, "C": 85, "D": 70},
+    "cost": {"A": 75, "B": 60, "C": 90, "D": 100},
+}
+
+
+def supplier_weighted_totals() -> dict[str, float]:
+    return {
+        option: sum(
+            SUPPLIER_WEIGHTS[dimension]
+            * SUPPLIER_SCORES[dimension][option]
+            for dimension in SUPPLIER_WEIGHTS
+        )
+        for option in ("A", "B", "C", "D")
+    }
+
+
+FORMAL_PILOT_ROLES: tuple[AgentRole, ...] = (
+    AgentRole(
+        agent_id="agent-a",
+        name="Reliability Analyst",
+        system_prompt=(
+            "Act as the reliability analyst. Use only information available "
+            "to you and the public discussion. Do not invent missing scores."
+        ),
+    ),
+    AgentRole(
+        agent_id="agent-b",
+        name="Security Auditor",
+        system_prompt=(
+            "Act as the security auditor. Use only information available "
+            "to you and the public discussion. Do not invent missing scores."
+        ),
+    ),
+    AgentRole(
+        agent_id="agent-c",
+        name="Cost Analyst",
+        system_prompt=(
+            "Act as the cost analyst. Use only information available "
+            "to you and the public discussion. Do not invent missing scores."
+        ),
+    ),
+)
+
+
+FORMAL_PILOT_QUESTION = Question(
+    question_id="supplier-hidden-profile-01",
+    prompt="Which supplier should the institution select?",
+    options={
+        "A": "Supplier A",
+        "B": "Supplier B",
+        "C": "Supplier C",
+        "D": "Supplier D",
+    },
+    correct_answer="C",
+    public_context=(
+        "Score each supplier with: 0.40 x reliability + 0.35 x security "
+        "+ 0.25 x cost advantage. Every dimension is scored from 0 to 100, "
+        "and higher is better. You initially possess only your specialist "
+        "dimension. Other evidence is available only if another agent "
+        "states it in the public discussion."
+    ),
+    private_contexts={
+        "agent-a": "Reliability scores: A=95, B=75, C=85, D=65.",
+        "agent-b": "Security scores: A=55, B=95, C=85, D=70.",
+        "agent-c": "Cost advantage scores: A=75, B=60, C=90, D=100.",
+    },
+)
+
+
 AGENT_ROLES: tuple[AgentRole, ...] = (
     AgentRole(
         agent_id="agent-a",

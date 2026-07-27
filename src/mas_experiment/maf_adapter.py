@@ -131,7 +131,17 @@ class MAFModelProvider:
             f"{message.speaker}: {message.content}"
             for message in visible_messages
         )
+        context_sections = [
+            section
+            for section in (
+                question.public_context,
+                question.private_context_for(role.agent_id),
+            )
+            if section
+        ]
+        context = "\n".join(context_sections) or "(none)"
         prompt = (
+            f"Task context:\n{context}\n\n"
             f"Question: {question.prompt}\n{options}\n\n"
             f"Public discussion:\n{history or '(none)'}\n\n"
             "Return only a JSON object with answer, probabilities for every "
