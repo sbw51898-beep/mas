@@ -18,8 +18,9 @@ dev = [
     "pytest-asyncio>=1.1,<2",
 ]
 maf = [
-    "agent-framework>=1.12.1,<2",
-    "agent-framework-openai>=1.12.1,<2",
+    "agent-framework-core>=1.12.1,<2",
+    "agent-framework-orchestrations>=1.0.1,<2",
+    "agent-framework-openai>=1.11.0,<2",
 ]
 
 [project.scripts]

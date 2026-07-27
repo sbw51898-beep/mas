@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - The default test suite and offline experiment require no network or API key.
-- Pin `agent-framework>=1.12.1,<2` and `agent-framework-openai>=1.12.1,<2`.
+- Pin `agent-framework-core>=1.12.1,<2`, `agent-framework-orchestrations>=1.0.1,<2`, and `agent-framework-openai>=1.11.0,<2`.
 - Read model credentials only from `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `OPENAI_CHAT_COMPLETION_MODEL`.
 - Never serialize an API key, authorization header, or complete environment mapping.
 - Use three agents, three round-robin rounds, nine dynamic turns, ten built-in multiple-choice questions, and a default seed of `20260727`.
