@@ -22,8 +22,9 @@ def response(
     round_index: int = 0,
     *,
     changed: bool = False,
+    probabilities: dict[str, float] | None = None,
 ) -> AgentResponse:
-    probabilities = {
+    selected_probabilities = probabilities or {
         option: (0.7 if option == answer else 0.1)
         for option in QUESTION.options
     }
@@ -32,7 +33,7 @@ def response(
         agent_id=agent_id,
         round_index=round_index,
         answer=answer,
-        probabilities=probabilities,
+        probabilities=selected_probabilities,
         reasoning="A reason.",
         raw_text="{}",
         changed_from_previous=changed,
@@ -48,31 +49,29 @@ def test_wrong_consensus_requires_unanimous_incorrect_answer() -> None:
             response("B", "b"),
             response("B", "c"),
         ],
-        final_answer="B",
         speaker_counts={"a": 1, "b": 1, "c": 1},
     )
 
     assert metrics.accuracy == 0.0
     assert metrics.wrong_consensus is True
-    assert metrics.consensus_rate == 1.0
+    assert metrics.majority_share == 1.0
+    assert metrics.unanimity is True
     assert metrics.pairwise_disagreement == 0.0
 
 
-def test_normalized_entropy_is_one_for_uniform_four_way_split() -> None:
+def test_three_agents_can_reach_unit_answer_entropy() -> None:
     metrics = calculate_metrics(
         question=QUESTION,
         responses=[
             response("A", "a"),
             response("B", "b"),
             response("C", "c"),
-            response("D", "d"),
         ],
-        final_answer="A",
-        speaker_counts={"a": 1, "b": 1, "c": 1, "d": 1},
+        speaker_counts={"a": 1, "b": 1, "c": 1},
     )
 
     assert metrics.answer_entropy == pytest.approx(1.0)
-    assert metrics.consensus_rate == pytest.approx(0.25)
+    assert metrics.majority_share == pytest.approx(1 / 3)
     assert metrics.pairwise_disagreement == pytest.approx(1.0)
 
 
@@ -85,20 +84,49 @@ def test_flip_rate_uses_agent_trajectories() -> None:
             response("B", "a", 1, changed=True),
             response("B", "b", 1),
         ],
-        final_answer="B",
         speaker_counts={"a": 2, "b": 2},
     )
 
     assert metrics.flip_rate == pytest.approx(0.5)
-    assert metrics.consensus_rate == 1.0
+    assert metrics.majority_share == 1.0
 
 
 def test_speaker_share_is_normalized() -> None:
     metrics = calculate_metrics(
         question=QUESTION,
         responses=[response("A", "a"), response("A", "b")],
-        final_answer="A",
         speaker_counts={"a": 3, "b": 1},
     )
 
     assert metrics.speaker_share == {"a": 0.75, "b": 0.25}
+
+
+def test_metrics_use_pooled_probabilities_for_primary_answer() -> None:
+    metrics = calculate_metrics(
+        question=QUESTION,
+        responses=[
+            response(
+                "B",
+                "a",
+                probabilities={"A": 0.35, "B": 0.4, "C": 0.15, "D": 0.1},
+            ),
+            response(
+                "B",
+                "b",
+                probabilities={"A": 0.35, "B": 0.4, "C": 0.15, "D": 0.1},
+            ),
+            response(
+                "A",
+                "c",
+                probabilities={"A": 0.95, "B": 0.02, "C": 0.02, "D": 0.01},
+            ),
+        ],
+        speaker_counts={"a": 1, "b": 1, "c": 1},
+    )
+
+    assert metrics.majority_answer == "B"
+    assert metrics.pooled_answer == "A"
+    assert metrics.accuracy == 1.0
+    assert metrics.group_brier >= 0.0
+    assert metrics.runtime_belief_state.reference_option == "A"
+    assert metrics.evaluation_belief_state.reference_option == "A"

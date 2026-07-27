@@ -120,16 +120,37 @@ class SelectionScore(BaseModel):
     selected: bool = False
 
 
+class BeliefState(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    reference_option: str
+    beliefs: dict[str, float]
+    mean_b: float = Field(ge=-1.0, le=1.0)
+    order_parameter_r: float = Field(ge=0.0, le=1.0)
+    temperature_proxy: float = Field(ge=0.0, le=1.0)
+    entropy_proxy: float = Field(ge=0.0, le=1.0)
+    disorder_proxy: float = Field(ge=0.0)
+
+
 class ExperimentMetrics(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     accuracy: float = Field(ge=0.0, le=1.0)
-    consensus_rate: float = Field(ge=0.0, le=1.0)
+    majority_share: float = Field(ge=0.0, le=1.0)
+    unanimity: bool
     wrong_consensus: bool
     flip_rate: float = Field(ge=0.0, le=1.0)
     pairwise_disagreement: float = Field(ge=0.0, le=1.0)
     answer_entropy: float = Field(ge=0.0, le=1.0)
+    js_disagreement: float = Field(ge=0.0, le=1.0)
+    group_brier: float = Field(ge=0.0)
     speaker_share: dict[str, float]
+    pooled_probabilities: dict[str, float]
+    pooled_answer: str
+    majority_answer: str
+    pooled_tie_break: bool = False
+    runtime_belief_state: BeliefState
+    evaluation_belief_state: BeliefState
 
 
 class ExperimentResult(BaseModel):

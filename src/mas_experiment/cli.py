@@ -131,7 +131,9 @@ def summarize_command(path: Path) -> None:
     for record in records:
         grouped[record["mode"]].append(record)
     typer.echo(f"{len(records)} records")
-    typer.echo("mode\taccuracy\tconsensus\tdisagreement\tentropy")
+    typer.echo(
+        "mode\taccuracy\tmajority_share\tdisagreement\tentropy"
+    )
     for mode in sorted(grouped):
         metrics = [
             record["metrics"]
@@ -141,7 +143,7 @@ def summarize_command(path: Path) -> None:
         typer.echo(
             f"{mode}\t"
             f"{mean(item['accuracy'] for item in metrics):.3f}\t"
-            f"{mean(item['consensus_rate'] for item in metrics):.3f}\t"
+            f"{mean(item['majority_share'] for item in metrics):.3f}\t"
             f"{mean(item['pairwise_disagreement'] for item in metrics):.3f}\t"
             f"{mean(item['answer_entropy'] for item in metrics):.3f}"
         )

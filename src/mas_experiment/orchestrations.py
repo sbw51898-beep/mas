@@ -102,7 +102,6 @@ def _build_result(
         calculate_metrics(
             question=question,
             responses=tuple(responses),
-            final_answer=final_answer,
             speaker_counts={
                 role.agent_id: speaker_counts.get(role.agent_id, 0)
                 for role in roles
@@ -111,6 +110,9 @@ def _build_result(
         if responses
         else None
     )
+    if metrics is not None:
+        final_answer = metrics.pooled_answer
+        tie_break = metrics.pooled_tie_break
     return ExperimentResult(
         run_id=str(uuid4()),
         mode=mode,
