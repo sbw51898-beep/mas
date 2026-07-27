@@ -24,15 +24,27 @@ def provider_request_totals(
         in result.get("metadata", {})
     ]
     if shared_metadata:
-        api_requests = max(
-            int(
-                metadata.get(
-                    "shared_initialization_api_requests",
-                    0,
-                )
-                or 0
+        grouped: dict[str, list[Mapping[str, Any]]] = {}
+        for index, result in enumerate(results):
+            metadata = result.get("metadata", {})
+            if "shared_initialization_api_requests" not in metadata:
+                continue
+            initial_id = str(
+                metadata.get("initial_state_id") or f"record-{index}"
             )
-            for metadata in shared_metadata
+            grouped.setdefault(initial_id, []).append(metadata)
+        api_requests = sum(
+            max(
+                int(
+                    metadata.get(
+                        "shared_initialization_api_requests",
+                        0,
+                    )
+                    or 0
+                )
+                for metadata in group
+            )
+            for group in grouped.values()
         )
         api_requests += sum(
             int(
@@ -44,15 +56,18 @@ def provider_request_totals(
             )
             for result in results
         )
-        repairs = max(
-            int(
-                metadata.get(
-                    "shared_initialization_repair_requests",
-                    0,
+        repairs = sum(
+            max(
+                int(
+                    metadata.get(
+                        "shared_initialization_repair_requests",
+                        0,
+                    )
+                    or 0
                 )
-                or 0
+                for metadata in group
             )
-            for metadata in shared_metadata
+            for group in grouped.values()
         )
         repairs += sum(
             int(
@@ -202,6 +217,85 @@ def build_pilot_report(
             "本报告只记录一道题的一次工程试跑。不能据此认定任何发言机制"
             "更优，不能据此建立共识与正确性的相关关系，也不能声称复现了"
             "贺文结果或证明这些代理量具有真实物理含义。",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def build_screening_report(
+    results: Sequence[Mapping[str, Any]],
+) -> str:
+    api_requests, repairs = provider_request_totals(results)
+    logical_slots = sum(
+        len(result.get("responses", [])) for result in results
+    )
+    shared_ids = {
+        str(result.get("metadata", {}).get("initial_state_id", ""))
+        for result in results
+        if result.get("metadata", {}).get("initial_state_id")
+    }
+    lines = [
+        "# 内容感知多智能体筛选实验报告",
+        "",
+        "## 工程与预算审计",
+        "",
+        f"- 结果记录：{len(results)}",
+        f"- 共享初始状态：{len(shared_ids)}",
+        f"- 讨论阶段实际API请求：{api_requests}",
+        f"- 逻辑响应位置：{logical_slots}",
+        f"- 格式修复请求：{repairs}",
+        "",
+        "| 任务 | 难度 | 模式 | accuracy | Brier | 信息覆盖 | "
+        "跨智能体输入使用 | FM-2.5候选 |",
+        "|---|---|---|---:|---:|---:|---:|---:|",
+    ]
+    for result in results:
+        metadata = result.get("metadata", {})
+        metrics = result.get("metrics") or {}
+        question = result.get("question", {})
+        lines.append(
+            "| "
+            f"{question.get('question_id', 'unknown')} | "
+            f"{metadata.get('difficulty', 'unknown')} | "
+            f"{result.get('mode', 'unknown')} | "
+            f"{_format_number(metrics.get('accuracy'))} | "
+            f"{_format_number(metrics.get('group_brier'))} | "
+            f"{_format_number(metrics.get('information_coverage'))} | "
+            f"{_format_number(metrics.get('cross_agent_input_use_rate'))} | "
+            f"{_format_number(metrics.get('ignored_input_candidate_rate'))} |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 发言顺序",
+            "",
+        ]
+    )
+    for result in results:
+        initial_count = len(result.get("roles", []))
+        speakers = [
+            str(message.get("speaker", ""))
+            for message in result.get("messages", [])[initial_count:]
+        ]
+        metadata = result.get("metadata", {})
+        question = result.get("question", {})
+        lines.append(
+            f"- `{question.get('question_id', 'unknown')}` / "
+            f"repeat {metadata.get('repeat_index', 'n/a')} / "
+            f"`{result.get('mode', 'unknown')}`："
+            + " → ".join(speakers)
+        )
+
+    lines.extend(
+        [
+            "",
+            "## 解释限制",
+            "",
+            "这是每道题仅两次重复的筛选性实验，用来判断机制是否值得扩样。"
+            "结果不能作为确认性结论，不能证明动态机制普遍优于其他机制，"
+            "FM-2.5候选也必须结合完整推理文本人工复核。",
             "",
         ]
     )

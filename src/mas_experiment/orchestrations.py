@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import platform
+import random
 from collections import Counter
 from collections.abc import Sequence
 from uuid import uuid4
@@ -93,6 +94,7 @@ def _build_result(
     mode: str,
     roles: tuple[AgentRole, ...],
     messages: Sequence[Message],
+    public_messages: Sequence[Message],
     responses: Sequence[AgentResponse],
     selection_scores: Sequence[SelectionScore],
     initial_state: InitialState,
@@ -156,6 +158,8 @@ def _build_result(
                 role.agent_id: speaker_counts.get(role.agent_id, 0)
                 for role in roles
             },
+            messages=tuple(public_messages),
+            initial_message_count=0,
         )
         if responses
         else None
@@ -411,6 +415,7 @@ async def run_independent(
         mode="independent",
         roles=roles,
         messages=messages,
+        public_messages=(),
         responses=responses,
         selection_scores=(),
         initial_state=resolved_initial_state,
@@ -457,9 +462,10 @@ async def run_round_robin(
     )
     errors = list(resolved_initial_state.errors)
     latest = _latest_by_agent(responses)
+    public_messages: list[Message] = []
     for round_index in (1, 2):
         for role in roles:
-            visible = tuple(messages)
+            visible = tuple(public_messages)
             prompt = _prompt_for(question, role, visible)
             try:
                 response = await provider.generate(
@@ -477,20 +483,93 @@ async def run_round_robin(
             response = _with_change_flag(response, latest.get(role.agent_id))
             latest[role.agent_id] = response
             responses.append(response)
-            messages.append(
-                _message_for(
-                    mode="round_robin",
-                    index=len(messages),
-                    response=response,
-                    visible_messages=visible,
-                    user_prompt=prompt,
-                )
+            message = _message_for(
+                mode="round_robin",
+                index=len(messages),
+                response=response,
+                visible_messages=visible,
+                user_prompt=prompt,
             )
+            messages.append(message)
+            public_messages.append(message)
     return _build_result(
         question=question,
         mode="round_robin",
         roles=roles,
         messages=messages,
+        public_messages=public_messages,
+        responses=responses,
+        selection_scores=(),
+        initial_state=resolved_initial_state,
+        shared_initial_state=shared,
+        seed=seed,
+        errors=errors,
+    )
+
+
+async def run_random_order(
+    question: Question,
+    roles: tuple[AgentRole, ...],
+    provider: ModelProvider,
+    *,
+    seed: int,
+    initial_state: InitialState | None = None,
+) -> ExperimentResult:
+    messages, responses, resolved_initial_state, shared = (
+        await _resolve_initial_state(
+            question,
+            roles,
+            provider,
+            seed=seed,
+            initial_state=initial_state,
+        )
+    )
+    errors = list(resolved_initial_state.errors)
+    latest = _latest_by_agent(responses)
+    public_messages: list[Message] = []
+    roles_by_id = {role.agent_id: role for role in roles}
+    schedule = [role.agent_id for role in roles] * 2
+    random.Random(seed).shuffle(schedule)
+
+    for selected_agent in schedule:
+        role = roles_by_id[selected_agent]
+        visible = tuple(public_messages)
+        prompt = _prompt_for(question, role, visible)
+        round_index = sum(
+            response.agent_id == selected_agent for response in responses
+        )
+        try:
+            response = await provider.generate(
+                question=question,
+                role=role,
+                round_index=round_index,
+                visible_messages=visible,
+                seed=seed,
+            )
+        except Exception as error:  # noqa: BLE001 - experiment logs failures
+            errors.append(
+                f"{selected_agent}: {type(error).__name__}: {error}"
+            )
+            continue
+        response = _with_change_flag(response, latest.get(selected_agent))
+        latest[selected_agent] = response
+        responses.append(response)
+        message = _message_for(
+            mode="random_order",
+            index=len(messages),
+            response=response,
+            visible_messages=visible,
+            user_prompt=prompt,
+        )
+        messages.append(message)
+        public_messages.append(message)
+
+    return _build_result(
+        question=question,
+        mode="random_order",
+        roles=roles,
+        messages=messages,
+        public_messages=public_messages,
         responses=responses,
         selection_scores=(),
         initial_state=resolved_initial_state,
@@ -521,19 +600,18 @@ async def run_dynamic(
     )
     errors = list(resolved_initial_state.errors)
     latest = _latest_by_agent(responses)
-    last_spoken_steps = {
-        role.agent_id: index
-        for index, role in enumerate(roles)
-        if role.agent_id in latest
-    }
+    public_messages: list[Message] = []
+    last_spoken_steps: dict[str, int] = {}
     selection_history: list[SelectionScore] = []
 
-    for step in range(3, 9):
+    for step in range(6):
         scores = score_candidates(
             agent_ids=agent_ids,
             latest_responses=latest,
             last_spoken_steps=last_spoken_steps,
             current_step=step,
+            question=question,
+            public_messages=tuple(public_messages),
         )
         selected_agent = scores[0].agent_id
         selection_history.extend(
@@ -544,7 +622,7 @@ async def run_dynamic(
         )
         last_spoken_steps[selected_agent] = step
         role = roles_by_id[selected_agent]
-        visible = tuple(messages)
+        visible = tuple(public_messages)
         prompt = _prompt_for(question, role, visible)
         round_index = sum(
             response.agent_id == selected_agent for response in responses
@@ -565,21 +643,22 @@ async def run_dynamic(
         response = _with_change_flag(response, latest.get(selected_agent))
         latest[selected_agent] = response
         responses.append(response)
-        messages.append(
-            _message_for(
-                mode="dynamic",
-                index=len(messages),
-                response=response,
-                visible_messages=visible,
-                user_prompt=prompt,
-            )
+        message = _message_for(
+            mode="dynamic",
+            index=len(messages),
+            response=response,
+            visible_messages=visible,
+            user_prompt=prompt,
         )
+        messages.append(message)
+        public_messages.append(message)
 
     return _build_result(
         question=question,
         mode="dynamic",
         roles=roles,
         messages=messages,
+        public_messages=public_messages,
         responses=responses,
         selection_scores=selection_history,
         initial_state=resolved_initial_state,

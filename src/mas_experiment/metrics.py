@@ -13,6 +13,8 @@ from mas_experiment.beliefs import (
     pool_probabilities,
 )
 from mas_experiment.domain import AgentResponse, ExperimentMetrics, Question
+from mas_experiment.domain import Message
+from mas_experiment.information import calculate_information_measures
 from mas_experiment.voting import majority_vote
 
 
@@ -67,6 +69,8 @@ def calculate_metrics(
     question: Question,
     responses: list[AgentResponse] | tuple[AgentResponse, ...],
     speaker_counts: dict[str, int],
+    messages: list[Message] | tuple[Message, ...] = (),
+    initial_message_count: int = 0,
 ) -> ExperimentMetrics:
     latest = _latest_valid_responses(question, responses)
     if not latest:
@@ -97,6 +101,11 @@ def calculate_metrics(
         agent_id: count / total_speeches if total_speeches else 0.0
         for agent_id, count in speaker_counts.items()
     }
+    information = calculate_information_measures(
+        question,
+        messages,
+        initial_message_count=initial_message_count,
+    )
 
     return ExperimentMetrics(
         accuracy=float(pooled_answer == question.correct_answer),
@@ -117,6 +126,13 @@ def calculate_metrics(
                 correct_answer=question.correct_answer,
             )
             for response in latest.values()
+        ),
+        information_coverage=information.information_coverage,
+        cross_agent_input_use_rate=(
+            information.cross_agent_input_use_rate
+        ),
+        ignored_input_candidate_rate=(
+            information.ignored_input_candidate_rate
         ),
         speaker_share=speaker_share,
         pooled_probabilities=pooled_probabilities,

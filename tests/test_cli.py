@@ -34,7 +34,7 @@ class FailingInitialProvider(DeterministicProvider):
         )
 
 
-def test_cli_offline_run_creates_thirty_records(tmp_path) -> None:
+def test_cli_offline_run_creates_forty_records(tmp_path) -> None:
     output = tmp_path / "results.jsonl"
 
     result = runner.invoke(
@@ -52,10 +52,11 @@ def test_cli_offline_run_creates_thirty_records(tmp_path) -> None:
 
     assert result.exit_code == 0, result.output
     records = read_results(output)
-    assert len(records) == 30
+    assert len(records) == 40
     assert {record["mode"] for record in records} == {
         "independent",
         "round_robin",
+        "random_order",
         "dynamic",
     }
 
@@ -74,7 +75,7 @@ def test_cli_summary_reports_each_mode(tmp_path) -> None:
     assert "independent" in result.output
     assert "round_robin" in result.output
     assert "dynamic" in result.output
-    assert "30 records" in result.output
+    assert "40 records" in result.output
 
 
 def test_formal_pilot_writes_three_complete_mode_records(tmp_path) -> None:
@@ -185,3 +186,51 @@ def test_formal_pilot_refuses_to_overwrite_existing_output(tmp_path) -> None:
     assert result.exit_code != 0
     assert "already exists" in result.output
     assert output.read_text(encoding="utf-8") == "existing"
+
+
+def test_screening_pilot_writes_twenty_four_matched_records_and_audit(
+    tmp_path,
+) -> None:
+    output = tmp_path / "screening.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "screening-pilot",
+            "--provider",
+            "offline",
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    records = read_results(output)
+    assert len(records) == 24
+    assert {record["mode"] for record in records} == {
+        "independent",
+        "round_robin",
+        "random_order",
+        "dynamic",
+    }
+    assert len(
+        {
+            record["metadata"]["initial_state_id"]
+            for record in records
+        }
+    ) == 6
+    assert all(len(record["responses"]) == 9 for record in records)
+    assert all(not record["errors"] for record in records)
+    assert {
+        record["metadata"]["difficulty"] for record in records
+    } == {"easy", "medium", "hard"}
+    assert all(
+        len(record["metadata"]["configuration_fingerprint"]) == 64
+        for record in records
+    )
+    assert all(record["metadata"]["code_commit"] for record in records)
+    assert output.with_suffix(".md").exists()
+    assert output.with_suffix(".manifest.json").exists()
+    assert "records=24" in result.output
+    assert "discussion API requests=162" in result.output

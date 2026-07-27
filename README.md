@@ -1,10 +1,12 @@
 # MAF Multi-Agent Experiment
 
-这是一个从零实现的多智能体实验骨架，用于比较三种等调用预算机制：
+这是一个从零实现的多智能体实验骨架，用于比较四种等调用预算机制：
 
 - `independent`：三个 Agent 各自回答并独立自省，始终看不到同伴消息；
 - `round_robin`：三人独立初始化后，按照 A、B、C 顺序公开讨论两轮；
-- `dynamic`：三人独立初始化后，根据概率分歧、等待时间和不确定性选择剩余6次发言者。
+- `random_order`：每人仍发言两次，但六个公开发言槽位按随机种子打乱；
+- `dynamic`：根据分歧、未曝光信息、依赖触发、不确定性和等待时间
+  五个因素选择剩余6次发言者。
 
 每种机制每题均使用9次有效讨论调用，避免把调用次数差异误当成讨论机制效果。
 
@@ -31,7 +33,7 @@ mas-experiment run --provider offline --output artifacts/results.jsonl
 mas-experiment summarize artifacts/results.jsonl
 ```
 
-默认运行10道题和3种机制，生成30条 JSONL 记录。每条记录包含 Agent 实际可见的消息 ID、结构化回答、动态选择分数、最终答案和基础指标。
+默认运行10道题和4种机制，生成40条 JSONL 记录。每条记录包含 Agent 实际可见的消息 ID、结构化回答、动态选择分数、最终答案和基础指标。
 
 ## 使用真实 OpenAI-compatible 模型
 
@@ -81,6 +83,38 @@ mas-experiment formal-pilot --provider offline --skip-connectivity --output arti
 
 离线结果只验证工程机制，真实单题结果也不能用于认定某种机制更优。
 
+## 三任务内容感知筛选实验
+
+筛选实验使用三道独立设计的隐藏信息题，分别代表容易、中等和困难
+任务。每道题运行两次共享初始状态，并比较 `independent`、
+`round_robin`、`random_order` 和 `dynamic` 四种机制。所有机制都只有
+6次后续调用，不启用自动终止，也不会自动修改未发言 Agent 的信念。
+共享初始回答只作为各模式共同的私有起点，不会自动公开；只有后续发言
+才进入公共讨论频道。
+
+先执行零成本离线审计：
+
+```powershell
+mas-experiment screening-pilot `
+  --provider offline `
+  --skip-connectivity `
+  --output artifacts/screening-offline.jsonl `
+  --overwrite
+```
+
+运行真实 DeepSeek 筛选实验：
+
+```powershell
+mas-experiment screening-pilot `
+  --provider deepseek `
+  --output artifacts/deepseek-screening-20260727.jsonl
+```
+
+默认预算为三道题 × 两次重复，共6个共享初始状态、24条模式记录和
+162次讨论API请求；连通性探测单独计数。命令会生成JSONL轨迹、Markdown
+报告和包含两者SHA-256摘要的`.manifest.json`清单。两次重复只用于筛选
+机制差异，不能作为确认性统计结论。
+
 ## 正式指标
 
 - 正确率；
@@ -91,6 +125,9 @@ mas-experiment formal-pilot --provider offline --skip-connectivity --output arti
 - 概率 Jensen-Shannon 分歧；
 - Brier 分数；
 - 归一化答案熵；
-- 各 Agent 发言占比。
+- 各 Agent 发言占比；
+- 私有信息关键词覆盖率；
+- 跨智能体输入使用率；
+- FM-2.5输入忽视候选率（必须人工复核）。
 
 探索性输出使用 `T_proxy`、`H_proxy` 和 `F_proxy` 命名，不把它们直接表述为真实温度、熵或 Helmholtz 自由能。后续需要通过扩样和 MAST 人工标注验证它们是否具有额外预测能力。

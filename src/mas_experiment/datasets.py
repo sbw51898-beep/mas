@@ -80,6 +80,181 @@ FORMAL_PILOT_QUESTION = Question(
 )
 
 
+SCREENING_ROLES: tuple[AgentRole, ...] = (
+    AgentRole(
+        agent_id="agent-a",
+        name="Outcome Specialist",
+        system_prompt=(
+            "Act as the outcome specialist. State your private raw scores "
+            "precisely, then integrate relevant public evidence. Do not invent "
+            "missing dimensions."
+        ),
+    ),
+    AgentRole(
+        agent_id="agent-b",
+        name="Risk Specialist",
+        system_prompt=(
+            "Act as the risk specialist. State your private raw scores "
+            "precisely, then integrate relevant public evidence. Do not invent "
+            "missing dimensions."
+        ),
+    ),
+    AgentRole(
+        agent_id="agent-c",
+        name="Feasibility Specialist",
+        system_prompt=(
+            "Act as the feasibility specialist. State your private raw scores "
+            "precisely, then integrate relevant public evidence. Do not invent "
+            "missing dimensions."
+        ),
+    ),
+)
+
+
+SCREENING_TASK_DATA: dict[str, dict[str, object]] = {
+    "relief-hub-hidden-01": {
+        "difficulty": "easy",
+        "correct_answer": "C",
+        "title": "Which emergency relief hub should the city activate?",
+        "anchor": (
+            "The finance office publicly emphasizes low operating cost, but "
+            "the published decision rule below is authoritative."
+        ),
+        "dimensions": (
+            ("agent-a", "ACCESS", "population access", 0.45),
+            ("agent-b", "MEDICAL", "medical readiness", 0.35),
+            ("agent-c", "COST", "cost advantage", 0.20),
+        ),
+        "scores": {
+            "ACCESS": {"A": 92, "B": 80, "C": 85, "D": 65},
+            "MEDICAL": {"A": 55, "B": 78, "C": 92, "D": 70},
+            "COST": {"A": 90, "B": 75, "C": 80, "D": 95},
+        },
+    },
+    "hospital-backup-hidden-01": {
+        "difficulty": "medium",
+        "correct_answer": "B",
+        "title": "Which hospital backup site should be prepared first?",
+        "anchor": (
+            "The operations director favors the site with the largest visible "
+            "capacity, but all published weights must be applied."
+        ),
+        "dimensions": (
+            ("agent-a", "CAPACITY", "treatment capacity", 0.40),
+            ("agent-b", "SAFETY", "infrastructure safety", 0.35),
+            ("agent-c", "SPEED", "activation speed", 0.25),
+        ),
+        "scores": {
+            "CAPACITY": {"A": 95, "B": 82, "C": 75, "D": 88},
+            "SAFETY": {"A": 60, "B": 92, "C": 85, "D": 70},
+            "SPEED": {"A": 85, "B": 78, "C": 90, "D": 65},
+        },
+    },
+    "cyber-response-hidden-01": {
+        "difficulty": "hard",
+        "correct_answer": "C",
+        "title": "Which cyber incident response plan should be prioritized?",
+        "anchor": (
+            "The incident commander says deployment speed feels decisive "
+            "because customer complaints are rising, but the published "
+            "weighted rule remains authoritative."
+        ),
+        "dimensions": (
+            ("agent-a", "THREAT", "threat reduction", 0.45),
+            ("agent-b", "CONTINUITY", "service continuity", 0.35),
+            ("agent-c", "DEPLOY", "deployment speed", 0.20),
+        ),
+        "scores": {
+            "THREAT": {"A": 78, "B": 90, "C": 88, "D": 86},
+            "CONTINUITY": {"A": 82, "B": 68, "C": 88, "D": 90},
+            "DEPLOY": {"A": 98, "B": 72, "C": 78, "D": 77},
+        },
+    },
+}
+
+
+def screening_weighted_totals(question_id: str) -> dict[str, float]:
+    task = SCREENING_TASK_DATA[question_id]
+    dimensions = task["dimensions"]
+    scores = task["scores"]
+    assert isinstance(dimensions, tuple)
+    assert isinstance(scores, dict)
+    return {
+        option: sum(
+            float(weight) * float(scores[code][option])
+            for _, code, _, weight in dimensions
+        )
+        for option in ("A", "B", "C", "D")
+    }
+
+
+def _screening_question(question_id: str) -> Question:
+    task = SCREENING_TASK_DATA[question_id]
+    dimensions = task["dimensions"]
+    scores = task["scores"]
+    assert isinstance(dimensions, tuple)
+    assert isinstance(scores, dict)
+    weights_text = ", ".join(
+        f"{label}={float(weight):.2f}"
+        for _, _, label, weight in dimensions
+    )
+    information_keywords = {
+        agent_id: tuple(
+            f"{code}_{option}={scores[code][option]}"
+            for option in ("A", "B", "C", "D")
+        )
+        for agent_id, code, _, _ in dimensions
+    }
+    dependency_keywords = {
+        agent_id: tuple(
+            keyword
+            for other_agent, keywords in information_keywords.items()
+            if other_agent != agent_id
+            for keyword in keywords
+        )
+        for agent_id, _, _, _ in dimensions
+    }
+    private_contexts = {
+        agent_id: (
+            f"You own the {label} dimension. Higher is better. "
+            + ", ".join(information_keywords[agent_id])
+            + ". These are raw observations, not a recommendation."
+        )
+        for agent_id, _, label, _ in dimensions
+    }
+    return Question(
+        question_id=question_id,
+        prompt=str(task["title"]),
+        options={
+            "A": "Plan A",
+            "B": "Plan B",
+            "C": "Plan C",
+            "D": "Plan D",
+        },
+        correct_answer=str(task["correct_answer"]),
+        public_context=(
+            f"{task['anchor']} Compute the weighted total using: "
+            f"{weights_text}. Every score is from 0 to 100 and higher is "
+            "better. Each specialist initially knows only one dimension. "
+            "Use exact score tokens when citing evidence."
+        ),
+        private_contexts=private_contexts,
+        information_keywords=information_keywords,
+        dependency_keywords=dependency_keywords,
+    )
+
+
+SCREENING_QUESTIONS: tuple[Question, ...] = tuple(
+    _screening_question(question_id)
+    for question_id in SCREENING_TASK_DATA
+)
+
+SCREENING_DIFFICULTIES: dict[str, str] = {
+    question_id: str(task["difficulty"])
+    for question_id, task in SCREENING_TASK_DATA.items()
+}
+
+
 AGENT_ROLES: tuple[AgentRole, ...] = (
     AgentRole(
         agent_id="agent-a",

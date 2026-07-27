@@ -23,6 +23,12 @@ class Question(BaseModel):
     correct_answer: str
     public_context: str = ""
     private_contexts: dict[str, str] = Field(default_factory=dict)
+    information_keywords: dict[str, tuple[str, ...]] = Field(
+        default_factory=dict
+    )
+    dependency_keywords: dict[str, tuple[str, ...]] = Field(
+        default_factory=dict
+    )
 
     @model_validator(mode="after")
     def validate_correct_answer(self) -> Question:
@@ -125,6 +131,8 @@ class SelectionScore(BaseModel):
     step: int = Field(ge=0)
     agent_id: str
     disagreement: float = Field(ge=0.0, le=1.0)
+    information_exposure: float = Field(ge=0.0, le=1.0)
+    dependency_trigger: float = Field(ge=0.0, le=1.0)
     waiting: float = Field(ge=0.0, le=1.0)
     uncertainty: float = Field(ge=0.0, le=1.0)
     total: float = Field(ge=0.0, le=1.0)
@@ -155,6 +163,9 @@ class ExperimentMetrics(BaseModel):
     answer_entropy: float = Field(ge=0.0, le=1.0)
     js_disagreement: float = Field(ge=0.0, le=1.0)
     group_brier: float = Field(ge=0.0)
+    information_coverage: float = Field(ge=0.0, le=1.0)
+    cross_agent_input_use_rate: float = Field(ge=0.0, le=1.0)
+    ignored_input_candidate_rate: float = Field(ge=0.0, le=1.0)
     speaker_share: dict[str, float]
     pooled_probabilities: dict[str, float]
     pooled_answer: str

@@ -7,6 +7,10 @@ from mas_experiment.datasets import (
     FORMAL_PILOT_QUESTION,
     FORMAL_PILOT_ROLES,
     QUESTIONS,
+    SCREENING_DIFFICULTIES,
+    SCREENING_QUESTIONS,
+    SCREENING_ROLES,
+    screening_weighted_totals,
     supplier_weighted_totals,
 )
 
@@ -50,3 +54,22 @@ def test_formal_pilot_answer_requires_combining_private_dimensions() -> None:
         "C": pytest.approx(86.25),
         "D": pytest.approx(75.50),
     }
+
+
+def test_screening_tasks_have_three_difficulties_and_complete_metadata() -> None:
+    role_ids = {role.agent_id for role in SCREENING_ROLES}
+
+    assert len(SCREENING_QUESTIONS) == 3
+    assert set(SCREENING_DIFFICULTIES.values()) == {
+        "easy",
+        "medium",
+        "hard",
+    }
+    for question in SCREENING_QUESTIONS:
+        assert set(question.private_contexts) == role_ids
+        assert set(question.information_keywords) == role_ids
+        assert set(question.dependency_keywords) == role_ids
+        assert all(question.information_keywords.values())
+        totals = screening_weighted_totals(question.question_id)
+        winner = max(totals, key=totals.get)
+        assert winner == question.correct_answer

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from mas_experiment.domain import AgentResponse, Question
+from mas_experiment.domain import AgentResponse, Message, Question
 from mas_experiment.metrics import calculate_metrics
 
 
@@ -130,3 +130,42 @@ def test_metrics_use_pooled_probabilities_for_primary_answer() -> None:
     assert metrics.group_brier >= 0.0
     assert metrics.runtime_belief_state.reference_option == "A"
     assert metrics.evaluation_belief_state.reference_option == "A"
+
+
+def test_metrics_include_transcript_information_measures() -> None:
+    question = QUESTION.model_copy(
+        update={"information_keywords": {"a": ("fact-a",), "b": ("fact-b",)}}
+    )
+    messages = [
+        Message(
+            message_id="m1",
+            speaker="a",
+            round_index=0,
+            content="fact-a",
+        ),
+        Message(
+            message_id="m2",
+            speaker="b",
+            round_index=1,
+            content="fact-b",
+        ),
+        Message(
+            message_id="m3",
+            speaker="a",
+            round_index=1,
+            content="I used fact-b.",
+            visible_history_ids=("m2",),
+        ),
+    ]
+
+    metrics = calculate_metrics(
+        question=question,
+        responses=[response("A", "a"), response("A", "b")],
+        speaker_counts={"a": 2, "b": 1},
+        messages=messages,
+        initial_message_count=1,
+    )
+
+    assert metrics.information_coverage == pytest.approx(0.5)
+    assert metrics.cross_agent_input_use_rate == pytest.approx(0.5)
+    assert metrics.ignored_input_candidate_rate == pytest.approx(0.0)

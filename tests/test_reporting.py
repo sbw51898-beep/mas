@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from mas_experiment.reporting import build_pilot_report
+from mas_experiment.reporting import (
+    build_pilot_report,
+    build_screening_report,
+    provider_request_totals,
+)
 
 
 FIXTURE_RESULTS = [
@@ -111,3 +115,49 @@ def test_report_counts_shared_initial_requests_once() -> None:
     assert "格式修复请求：1" in report
     assert "逻辑响应位置：4" in report
     assert "initial-1" in report
+
+
+def test_request_totals_count_each_shared_initial_state_once() -> None:
+    results = []
+    for initial_id in ("initial-1", "initial-2"):
+        for mode in ("round_robin", "dynamic"):
+            results.append(
+                {
+                    "mode": mode,
+                    "metadata": {
+                        "initial_state_id": initial_id,
+                        "shared_initialization_api_requests": 3,
+                        "shared_initialization_repair_requests": 0,
+                        "mode_follow_up_api_requests": 6,
+                        "mode_follow_up_repair_requests": 0,
+                    },
+                }
+            )
+
+    assert provider_request_totals(results) == (30, 0)
+
+
+def test_screening_report_includes_information_metrics_and_limit() -> None:
+    fixture = {
+        **FIXTURE_RESULTS[0],
+        "metadata": {
+            "difficulty": "hard",
+            "initial_state_id": "shared-1",
+            "shared_initialization_api_requests": 3,
+            "mode_follow_up_api_requests": 6,
+        },
+        "metrics": {
+            **FIXTURE_RESULTS[0]["metrics"],
+            "information_coverage": 0.75,
+            "cross_agent_input_use_rate": 0.5,
+            "ignored_input_candidate_rate": 0.25,
+        },
+    }
+
+    report = build_screening_report([fixture])
+
+    assert "信息覆盖" in report
+    assert "跨智能体输入使用" in report
+    assert "FM-2.5候选" in report
+    assert "筛选性实验" in report
+    assert "不能作为确认性结论" in report

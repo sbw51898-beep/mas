@@ -8,11 +8,19 @@ from typing import Annotated, Any, NamedTuple
 
 import typer
 
+from mas_experiment.audit import (
+    configuration_fingerprint,
+    current_git_commit,
+    write_sha256_manifest,
+)
 from mas_experiment.datasets import (
     AGENT_ROLES,
     FORMAL_PILOT_QUESTION,
     FORMAL_PILOT_ROLES,
     QUESTIONS,
+    SCREENING_DIFFICULTIES,
+    SCREENING_QUESTIONS,
+    SCREENING_ROLES,
 )
 from mas_experiment.maf_adapter import (
     MAFModelProvider,
@@ -25,6 +33,7 @@ from mas_experiment.orchestrations import (
     prepare_initial_state,
     run_dynamic,
     run_independent,
+    run_random_order,
     run_round_robin,
     validate_initial_state,
 )
@@ -33,7 +42,11 @@ from mas_experiment.providers import (
     DeterministicProvider,
     OpenAICompatibleSettings,
 )
-from mas_experiment.reporting import build_pilot_report
+from mas_experiment.reporting import (
+    build_pilot_report,
+    build_screening_report,
+    provider_request_totals,
+)
 from mas_experiment.traces import append_result, read_results
 
 
@@ -44,6 +57,13 @@ class FormalPilotCounts(NamedTuple):
     connectivity: int
     shared_initialization: int
     follow_up: int
+    discussion: int
+    logical_slots: int
+
+
+class ScreeningCounts(NamedTuple):
+    records: int
+    connectivity: int
     discussion: int
     logical_slots: int
 
@@ -59,6 +79,25 @@ def create_formal_provider(provider_name: str) -> Any:
                 role.agent_id: agent
                 for role, agent in zip(
                     FORMAL_PILOT_ROLES,
+                    agents,
+                    strict=True,
+                )
+            }
+        )
+    raise typer.BadParameter("provider must be deepseek or offline")
+
+
+def create_screening_provider(provider_name: str) -> Any:
+    if provider_name == "offline":
+        return DeterministicProvider()
+    if provider_name == "deepseek":
+        settings = DeepSeekSettings.from_env()
+        agents = create_maf_agents(settings, SCREENING_ROLES)
+        return MAFModelProvider(
+            {
+                role.agent_id: agent
+                for role, agent in zip(
+                    SCREENING_ROLES,
                     agents,
                     strict=True,
                 )
@@ -165,6 +204,106 @@ async def _run_formal_pilot(
     )
 
 
+async def _run_screening_pilot(
+    *,
+    provider_name: str,
+    output: Path,
+    base_seed: int,
+    repeats: int,
+    skip_connectivity: bool,
+) -> ScreeningCounts:
+    provider = create_screening_provider(provider_name)
+    connectivity_requests = 0
+    if provider_name == "deepseek" and not skip_connectivity:
+        probe = await provider.generate(
+            question=SCREENING_QUESTIONS[0],
+            role=SCREENING_ROLES[0],
+            round_index=0,
+            visible_messages=(),
+            seed=base_seed,
+        )
+        connectivity_requests = int(
+            probe.provider_metadata.get("api_requests", 1)
+        )
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("", encoding="utf-8")
+    runners = (
+        run_independent,
+        run_round_robin,
+        run_random_order,
+        run_dynamic,
+    )
+    code_commit = current_git_commit()
+    for task_index, question in enumerate(SCREENING_QUESTIONS):
+        for repeat_index in range(repeats):
+            seed = base_seed + task_index * 100 + repeat_index
+            initial_state = await prepare_initial_state(
+                question,
+                SCREENING_ROLES,
+                provider,
+                seed=seed,
+            )
+            validate_initial_state(
+                question,
+                SCREENING_ROLES,
+                initial_state,
+            )
+            fingerprint = configuration_fingerprint(
+                question,
+                SCREENING_ROLES,
+                seed=seed,
+            )
+            for run_mode in runners:
+                result = await run_mode(
+                    question,
+                    SCREENING_ROLES,
+                    provider,
+                    seed=seed,
+                    initial_state=initial_state,
+                )
+                if len(result.responses) != 9 or result.errors:
+                    raise RuntimeError(
+                        f"{question.question_id}/{result.mode} incomplete: "
+                        f"{len(result.responses)} responses, "
+                        f"errors={list(result.errors)}"
+                    )
+                metadata = {
+                    **dict(result.metadata),
+                    "difficulty": SCREENING_DIFFICULTIES[
+                        question.question_id
+                    ],
+                    "task_index": task_index,
+                    "repeat_index": repeat_index,
+                    "base_seed": base_seed,
+                    "configuration_fingerprint": fingerprint,
+                    "code_commit": code_commit,
+                }
+                append_result(
+                    output,
+                    result.model_copy(update={"metadata": metadata}),
+                )
+
+    records = read_results(output)
+    report_path = output.with_suffix(".md")
+    report_path.write_text(
+        build_screening_report(records),
+        encoding="utf-8",
+        newline="\n",
+    )
+    write_sha256_manifest(
+        (output, report_path),
+        output.with_suffix(".manifest.json"),
+    )
+    discussion_requests, _ = provider_request_totals(records)
+    return ScreeningCounts(
+        records=len(records),
+        connectivity=connectivity_requests,
+        discussion=discussion_requests,
+        logical_slots=sum(len(record["responses"]) for record in records),
+    )
+
+
 async def _run_experiments(
     *,
     provider_name: str,
@@ -187,17 +326,24 @@ async def _run_experiments(
         )
 
     selected_modes = (
-        ("independent", "round_robin", "dynamic")
+        ("independent", "round_robin", "random_order", "dynamic")
         if mode == "all"
         else (mode,)
     )
     if any(
         selected
-        not in {"concurrent", "independent", "round_robin", "dynamic"}
+        not in {
+            "concurrent",
+            "independent",
+            "round_robin",
+            "random_order",
+            "dynamic",
+        }
         for selected in selected_modes
     ):
         raise typer.BadParameter(
-            "mode must be all, independent, round_robin, or dynamic"
+            "mode must be all, independent, round_robin, "
+            "random_order, or dynamic"
         )
 
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -211,6 +357,13 @@ async def _run_experiments(
                 )
             elif selected_mode == "round_robin":
                 result = await run_round_robin(
+                    question,
+                    AGENT_ROLES,
+                    provider,
+                    seed=seed,
+                )
+            elif selected_mode == "random_order":
+                result = await run_random_order(
                     question,
                     AGENT_ROLES,
                     provider,
@@ -240,7 +393,9 @@ def run_command(
     ] = "offline",
     mode: Annotated[
         str,
-        typer.Option(help="all, independent, round_robin, or dynamic"),
+        typer.Option(
+            help="all, independent, round_robin, random_order, or dynamic"
+        ),
     ] = "all",
     seed: Annotated[int, typer.Option()] = 20260727,
     limit: Annotated[int, typer.Option(min=1, max=10)] = 10,
@@ -298,6 +453,58 @@ def formal_pilot_command(
         f"follow-up API requests={counts.follow_up}; "
         f"discussion API requests={counts.discussion}; "
         f"logical response slots={counts.logical_slots}"
+    )
+
+
+@app.command("screening-pilot")
+def screening_pilot_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination JSONL file."),
+    ] = Path("artifacts/deepseek-screening-20260727.jsonl"),
+    provider: Annotated[
+        str,
+        typer.Option(help="deepseek or offline"),
+    ] = "deepseek",
+    base_seed: Annotated[int, typer.Option()] = 20260727,
+    repeats: Annotated[int, typer.Option(min=1, max=10)] = 2,
+    skip_connectivity: Annotated[
+        bool,
+        typer.Option(help="Skip the uncounted connectivity probe."),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(help="Replace existing screening artifacts."),
+    ] = False,
+) -> None:
+    artifacts = (
+        output,
+        output.with_suffix(".md"),
+        output.with_suffix(".manifest.json"),
+    )
+    existing = [path for path in artifacts if path.exists()]
+    if existing and not overwrite:
+        raise typer.BadParameter(
+            "screening artifact already exists: "
+            + ", ".join(str(path) for path in existing)
+        )
+    counts = asyncio.run(
+        _run_screening_pilot(
+            provider_name=provider,
+            output=output,
+            base_seed=base_seed,
+            repeats=repeats,
+            skip_connectivity=skip_connectivity,
+        )
+    )
+    typer.echo(
+        f"Completed screening -> {output}; "
+        f"records={counts.records}; "
+        f"connectivity API requests={counts.connectivity}; "
+        f"discussion API requests={counts.discussion}; "
+        f"logical response slots={counts.logical_slots}; "
+        f"report={output.with_suffix('.md')}; "
+        f"manifest={output.with_suffix('.manifest.json')}"
     )
 
 

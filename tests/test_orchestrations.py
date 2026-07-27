@@ -24,6 +24,7 @@ from mas_experiment.orchestrations import (
     prepare_initial_state,
     run_dynamic,
     run_independent,
+    run_random_order,
     run_round_robin,
     validate_initial_state,
 )
@@ -259,7 +260,7 @@ async def test_runner_reuse_does_not_mutate_initial_state() -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "runner",
-    [run_independent, run_round_robin, run_dynamic],
+    [run_independent, run_round_robin, run_random_order, run_dynamic],
 )
 async def test_every_mode_uses_exactly_nine_discussion_calls(runner) -> None:
     provider = RecordingProvider()
@@ -310,6 +311,28 @@ async def test_independent_mode_sees_only_same_agent_history() -> None:
 
 
 @pytest.mark.asyncio
+async def test_independent_private_reflections_do_not_count_as_public_exposure() -> None:
+    question = FORMAL_PILOT_QUESTION.model_copy(
+        update={
+            "information_keywords": {
+                role.agent_id: (f"{role.agent_id} response",)
+                for role in FORMAL_PILOT_ROLES
+            }
+        }
+    )
+
+    result = await run_independent(
+        question,
+        FORMAL_PILOT_ROLES,
+        RecordingProvider(),
+        seed=20260727,
+    )
+
+    assert result.metrics is not None
+    assert result.metrics.information_coverage == pytest.approx(0.0)
+
+
+@pytest.mark.asyncio
 async def test_round_robin_visibility_grows_after_each_turn() -> None:
     provider = RecordingProvider()
 
@@ -321,10 +344,29 @@ async def test_round_robin_visibility_grows_after_each_turn() -> None:
     )
 
     assert [len(ids) for ids in provider.visible_histories] == [
-        0, 0, 0, 3, 4, 5, 6, 7, 8
+        0, 0, 0, 0, 1, 2, 3, 4, 5
     ]
     assert [len(message.visible_history_ids) for message in result.messages] == [
-        0, 0, 0, 3, 4, 5, 6, 7, 8
+        0, 0, 0, 0, 1, 2, 3, 4, 5
+    ]
+
+
+@pytest.mark.asyncio
+async def test_random_order_is_seeded_and_gives_every_agent_two_turns() -> None:
+    result = await run_random_order(
+        FORMAL_PILOT_QUESTION,
+        FORMAL_PILOT_ROLES,
+        RecordingProvider(),
+        seed=17,
+    )
+
+    assert [message.speaker for message in result.messages[3:]] == [
+        "agent-a",
+        "agent-c",
+        "agent-b",
+        "agent-c",
+        "agent-a",
+        "agent-b",
     ]
 
 
