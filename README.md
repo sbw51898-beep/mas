@@ -131,3 +131,22 @@ mas-experiment screening-pilot `
 - FM-2.5输入忽视候选率（必须人工复核）。
 
 探索性输出使用 `T_proxy`、`H_proxy` 和 `F_proxy` 命名，不把它们直接表述为真实温度、熵或 Helmholtz 自由能。后续需要通过扩样和 MAST 人工标注验证它们是否具有额外预测能力。
+
+## HiddenBench 公开案例复现
+
+项目已经增加独立的 HiddenBench 忠实复现链：四名 Agent、固定
+A-B-C-D 轮转、15轮共60条公开消息，并比较 Hidden pre、Hidden post
+和 Full Profile。该链不会混入上面的动态发言机制。
+
+先运行离线结构验收：
+
+```powershell
+mas-experiment hiddenbench-showcase `
+  --provider scripted `
+  --script tests\fixtures\hiddenbench_script.json `
+  --skip-connectivity `
+  --output artifacts\hiddenbench-offline-qa.jsonl
+```
+
+真实 DeepSeek 单案例及十题人工闸门步骤见
+[HiddenBench MAF 复现手册](docs/hiddenbench-reproduction.md)。
