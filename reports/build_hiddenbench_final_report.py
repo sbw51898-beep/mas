@@ -378,6 +378,8 @@ def choose_widths(rows):
         return [2400, 6960]
     if cols == 6:
         return [600, 3380, 1120, 1120, 1120, 2020]
+    if cols == 5:
+        return [600, 3960, 1200, 1200, 2400]
     return [TABLE_WIDTH_DXA // cols] * cols
 
 

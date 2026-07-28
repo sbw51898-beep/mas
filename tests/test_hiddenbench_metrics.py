@@ -160,6 +160,187 @@ def test_lexical_match_requires_six_terms_and_55_percent_coverage() -> None:
     assert not lexical_fact_match(fact, " ".join(terms[:5]))
 
 
+@pytest.mark.parametrize(
+    ("fact", "message"),
+    (
+        (
+            "Repair teams confirm that solar panels at Station Charlie are "
+            "offline due to windstorm damage. The backup batteries are "
+            "depleted and the station has no power.",
+            "Given the power outage at Station Charlie, I would rule it out.",
+        ),
+        (
+            "Community hotline reported that Station Alpha's ventilation "
+            "system was unintentionally exposed to outdoor air after "
+            "yesterday's accident. Test results show elevated toxin levels "
+            "inside.",
+            "Station Alpha is unsafe due to elevated toxin levels from "
+            "ventilation exposure.",
+        ),
+        (
+            "Maintenance crew at Station Delta inspected all major systems "
+            "this morning and confirmed water is safe, backup lights work, "
+            "and no signs of contamination were found.",
+            "Station Delta's systems have been confirmed safe, so I support "
+            "Delta.",
+        ),
+        (
+            "Field agent at Bravo reports air sensors detected low but "
+            "abnormal readings, suggesting possible chemical contamination "
+            "near Station Bravo.",
+            "There is potential contamination near Station Bravo, so Bravo "
+            "should be excluded.",
+        ),
+    ),
+)
+def test_compressed_paraphrases_count_as_private_fact_disclosure(
+    fact: str,
+    message: str,
+) -> None:
+    assert lexical_fact_match(fact, message)
+
+
+@pytest.mark.parametrize(
+    ("fact", "message"),
+    (
+        (
+            "Repair teams confirm that solar panels at Station Charlie are "
+            "offline due to windstorm damage. The backup batteries are "
+            "depleted and the station has no power.",
+            "Station Charlie is on higher ground and has solar power.",
+        ),
+        (
+            "Maintenance crew at Station Delta inspected all major systems "
+            "this morning and confirmed water is safe, backup lights work, "
+            "and no signs of contamination were found.",
+            "Station Delta may be contaminated and should be avoided.",
+        ),
+    ),
+)
+def test_entity_mention_or_reversed_claim_is_not_disclosure(
+    fact: str,
+    message: str,
+) -> None:
+    assert not lexical_fact_match(fact, message)
+
+
+def test_atomic_bullet_fact_can_be_disclosed_without_repeating_bundle() -> None:
+    fact = """Stevens' information:
+- Comments indicate thatStevens discourages innovative ideas
+Roberts' information:
+- Increased faculty diversity
+Jones' information:
+- Jones is a strategic thinker
+- There is tension between the provost and Jones"""
+
+    assert lexical_fact_match(
+        fact,
+        "Jones is a strategic thinker despite tension with the provost.",
+    )
+    assert lexical_fact_match(
+        fact,
+        "Stevens remains concerning because he discourages innovation.",
+    )
+    assert not lexical_fact_match(
+        fact,
+        "Jones is my recommendation because the group supports Jones.",
+    )
+
+
+def test_structured_criterion_requires_matching_entity_value_and_polarity() -> None:
+    fact = """Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y"""
+
+    assert lexical_fact_match(
+        fact,
+        "Franklin Enterprises fails criteria (a) and (c).",
+    )
+    assert not lexical_fact_match(
+        fact,
+        "Franklin Enterprises meets criterion (a).",
+    )
+
+
+def test_same_words_in_different_claim_do_not_count_as_disclosure() -> None:
+    fact = (
+        "A cable cut near Data Center Charlie was fully repaired, and the "
+        "center passed an extra security audit."
+    )
+    message = (
+        "Data Center Charlie is safest because Alpha faces a power cut and "
+        "Charlie has physical security."
+    )
+
+    assert not lexical_fact_match(fact, message)
+
+
+def test_single_letter_entity_anchor_must_match_entity_type_and_value() -> None:
+    fact = (
+        "Hospital A's mountain road has been cleared and independently "
+        "confirmed safe."
+    )
+    message = (
+        "Hospital B is a safe choice because its mountain road is clear."
+    )
+
+    assert not lexical_fact_match(fact, message)
+
+
+@pytest.mark.parametrize(
+    ("fact", "message"),
+    (
+        (
+            "Construction near Data Center Alpha creates a risk of power cuts.",
+            "The imminent power cut risk at Alpha makes Charlie safer.",
+        ),
+        (
+            "Restaurant C's cold menu remains available from a backup prep area.",
+            "C's cold menu may not satisfy everyone's preferences.",
+        ),
+    ),
+)
+def test_unambiguous_short_entity_references_are_supported(
+    fact: str,
+    message: str,
+) -> None:
+    assert lexical_fact_match(fact, message)
+
+
+@pytest.mark.parametrize(
+    ("fact", "message"),
+    (
+        (
+            "Stevens tends to discourage new, innovative ideas.",
+            "I remain concerned about Stevens discouraging innovation.",
+        ),
+        (
+            "The health department warned of a norovirus outbreak among "
+            "cooks at Restaurant A.",
+            "Restaurant A has a norovirus outbreak.",
+        ),
+        (
+            "Option B's chief engineer will resign immediately after an "
+            "acquisition.",
+            "Option B risks losing its chief engineer after acquisition.",
+        ),
+        (
+            "Station Delta has safe water, working backup lights, and no "
+            "signs of contamination.",
+            "Station Delta has safe water and backup lights and avoids all "
+            "contamination risks.",
+        ),
+    ),
+)
+def test_domain_paraphrases_preserve_claim_polarity(
+    fact: str,
+    message: str,
+) -> None:
+    assert lexical_fact_match(fact, message)
+
+
 def test_disclosure_and_later_cross_agent_use_are_fact_level() -> None:
     fact = TASK.hidden_information[0]
     owner = next(

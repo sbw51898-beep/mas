@@ -198,19 +198,39 @@ full_profile_gap = 0.000
 这个案例说明，在信息分散时，四名智能体最初都判断错误；公开讨论披露
 关键信息后，系统从全错转为全对。
 
-### 5. 自动过程指标的误报
+### 5. 自动披露指标修正
 
 程序最初使用 `lexical-v1` 保守规则：一条发言必须至少命中私有事实的
-6 个实义词，并覆盖该事实词汇的 55%，才记为信息披露。
+6 个实义词，并覆盖该事实词汇的 55%，才记为信息披露。该规则能避免
+把一般性讨论误记为披露，但会漏掉压缩和释义表达。例如，Agent 把完整
+的 Alpha 通风检测报告概括为 “Station Alpha is unsafe due to elevated
+toxin levels”，含义已经披露，词汇覆盖率却不足 55%。
 
-Agent 实际采用了压缩和释义表达，例如把完整的 Alpha 通风检测报告概括
-为 “Station Alpha is unsafe due to elevated toxin levels”。因此自动
-指标错误地得到披露率 0，并生成四个 FM-2.4 候选。
+本次在不修改任何原始模型回答、不增加 DeepSeek 调用的前提下，将过程
+指标升级为 `lexical-semantic-v2`。新规则包括：
 
-人工检查原始对话后，可以确认四条私有信息都在第一轮披露，且随后被
-其他智能体用于判断。因此这四个 FM-2.4 候选是词法阈值造成的误报，
-不能作为真实失败结论。原始自动结果予以保留，避免在看到结果后修改
-规则；人工结论在报告中单独记录。
+1. 保留原来的 6 词、55% 严格词法闸门；
+2. 对 `exposed/exposure`、`expires/expiring` 等表达做轻量词形归一；
+3. 将长列表拆成原子事实，允许 Agent 披露其中一条决策相关私有信息；
+4. 使用 Station、Hospital、Restaurant、Lab、Option 和 Data Center
+   等实体锚点；
+5. 识别断电、污染、道路阻断、人员流失等有限、可检查的语义概念；
+6. 设置极性冲突保护，避免把“有电”当成“断电”、把“有污染”当成
+   “无污染”；
+7. 对 `(a) N` 一类结构化准则，同时核对实体、准则编号和通过/失败方向。
+
+修正后，ID 25 的四条私有信息全部被自动识别为已披露：
+
+```text
+private_fact_disclosure_rate = 1.000
+cross_agent_use_rate = 0.750
+FM-2.4 candidates = 0
+```
+
+`cross_agent_use_rate = 0.750` 表示四条私有事实中有三条在披露后被至少
+一名其他 Agent 明确复用。原来的四个 FM-2.4 候选已经消失。自动候选
+仍须人工复核，因为该规则是透明的任务级语义启发式，不是通用自然语言
+蕴含模型。
 
 ## 五、锁定十题筛选结果
 
@@ -250,6 +270,42 @@ Agent 实际采用了压缩和释义表达，例如把完整的 Alpha 通风检�
 因此，这十题并不支持“共识等于正确”。讨论既可能整合信息，也可能
 让智能体围绕错误答案快速收敛。
 
+### 自动信息流指标
+
+使用同一批原始 JSONL 重新评分，没有重新调用模型，正确率和投票结果
+均未改变。
+
+| ID | 任务 | 私有信息披露率 | 跨 Agent 使用率 | FM-2.4 候选数 |
+|---:|---|---:|---:|---:|
+| 1 | evacuation_west_city | 0.750 | 0.750 | 1 |
+| 5 | baker_2010 | 0.750 | 0.500 | 1 |
+| 7 | graetz_et_al_1998 | 1.000 | 1.000 | 0 |
+| 9 | critical_hospital_transfer | 0.750 | 0.500 | 1 |
+| 13 | Laboratory Theft Deduction | 1.000 | 0.750 | 0 |
+| 14 | lunch_group_decision | 0.750 | 0.000 | 1 |
+| 16 | Crisis Backup Decision | 0.500 | 0.500 | 2 |
+| 25 | select_emergency_shelter | 1.000 | 1.000 | 0 |
+| 47 | Find the Missing Prototype | 1.000 | 0.750 | 0 |
+| 62 | company_acquisition_decision | 1.000 | 0.750 | 0 |
+| **平均/合计** |  | **0.850** | **0.650** | **6** |
+
+原 `lexical-v1` 在十题上的平均披露率为 0.025、跨 Agent 使用率为
+0.000。v2 修正为 0.850 和 0.650，说明旧结果主要反映词法漏检，不能
+解释为 Agent 普遍没有披露信息。
+
+仍保留的 6 个 FM-2.4 自动候选是：
+
+- ID 1 / agent-c：未公开“步道因倒树关闭”；
+- ID 5 / agent-a：未公开其候选人资料包中的决策相关私有点；
+- ID 9 / agent-a：未公开“Hospital A 山路已清理并确认安全”；
+- ID 14 / agent-b：未公开“Restaurant C 次餐厅仍对公众开放”；
+- ID 16 / agent-a：未公开“Charlie 电缆已修复并通过额外安全审计”；
+- ID 16 / agent-d：未公开“Bravo 临时负责人不熟悉应急流程”。
+
+人工复核这些所有者的 15 次发言后，没有发现能够推翻上述 6 个候选的
+明确表达，因此它们不是本轮已知的词法漏检；但最终是否构成 MAST
+FM-2.4，仍需结合任务重要性和完整上下文人工定性。
+
 ## 六、运行与审计
 
 - 单案例：72 次正式 API 调用，0 次格式修复；
@@ -259,11 +315,15 @@ Agent 实际采用了压缩和释义表达，例如把完整的 Alpha 通风检�
 - 修复发生在任务 62 的 hidden post / agent-a；
 - 原始输出把答案写成 `Option C`，不符合官方完整候选字符串；
 - 修复后得到 `Option C: Logistics software company`；
+- v2 信息披露重评分：0 次新增模型/API 请求，原始回答和投票未改动；
+- ID 25 自动披露率：由 0.000 修正为 1.000；
+- 十题平均自动披露率：由 0.025 修正为 0.850；
+- 十题平均跨 Agent 使用率：由 0.000 修正为 0.650；
 - 总输入 token：1,205,166；
 - 其中缓存读取 token：904,064；
 - 总输出 token：30,662；
 - 总 token：1,235,828；
-- 全套测试：133 项通过；
+- 全套测试：149 项通过；
 - 所有任务均为 60 条讨论消息；
 - manifest SHA-256 重新计算一致；
 - API Key、Authorization、Bearer 扫描：0 命中。
@@ -313,6 +373,7 @@ https://github.com/sbw51898-beep/mas
 - 保存每名 Agent 的实际可见信息；
 - 保存全部 system prompt、user prompt、原始回答和 60 条讨论；
 - 生成 JSONL、Markdown、manifest 和代码提交号；
+- 修复了自动信息披露指标的释义漏检，并增加反向陈述保护；
 - 发现讨论增益与错误共识同时存在。
 
 下一步不宜马上加入更多自定义参数。建议先做两件事：
@@ -324,11 +385,11 @@ https://github.com/sbw51898-beep/mas
 
 ## 九、附件
 
-- `artifacts/hiddenbench-showcase-20260728.jsonl`：ID 25 原始记录；
-- `artifacts/hiddenbench-showcase-20260728.md`：ID 25 完整可读档案；
-- `artifacts/hiddenbench-showcase-20260728.manifest.json`：单案例 hash；
-- `artifacts/hiddenbench-showcase-20260728.gate.json`：闸门 A 校验；
-- `artifacts/hiddenbench-screening-20260728.jsonl`：十题原始记录；
-- `artifacts/hiddenbench-screening-20260728.md`：十题汇总；
-- `artifacts/hiddenbench-screening-20260728.manifest.json`：十题 hash；
+- `artifacts/hiddenbench-showcase-20260728-v2.jsonl`：ID 25 v2 重评分记录；
+- `artifacts/hiddenbench-showcase-20260728-v2.md`：ID 25 完整可读档案；
+- `artifacts/hiddenbench-showcase-20260728-v2.manifest.json`：单案例 hash；
+- `artifacts/hiddenbench-showcase-20260728-v2.gate.json`：闸门 A 校验；
+- `artifacts/hiddenbench-screening-20260728-v2.jsonl`：十题 v2 重评分记录；
+- `artifacts/hiddenbench-screening-20260728-v2.md`：十题指标汇总；
+- `artifacts/hiddenbench-screening-20260728-v2.manifest.json`：十题 hash；
 - `docs/hiddenbench-reproduction.md`：完整复现手册。
