@@ -1,0 +1,3 @@
+# HiddenBench provenance checks hash the exact official dataset bytes.
+# Force LF on every platform so Windows checkout does not alter the snapshot.
+data/hiddenbench/benchmark.json text eol=lf
