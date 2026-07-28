@@ -126,7 +126,8 @@ mas-experiment screening-pilot `
 - Brier 分数；
 - 归一化答案熵；
 - 各 Agent 发言占比；
-- 私有信息关键词覆盖率；
+- 私有信息披露率（`lexical-semantic-v2`：严格词法、原子事实、
+  实体锚点、有限语义概念与极性冲突保护）；
 - 跨智能体输入使用率；
 - FM-2.5输入忽视候选率（必须人工复核）。
 
@@ -150,3 +151,15 @@ mas-experiment hiddenbench-showcase `
 
 真实 DeepSeek 单案例及十题人工闸门步骤见
 [HiddenBench MAF 复现手册](docs/hiddenbench-reproduction.md)。
+
+老师审阅入口：
+
+- [最终实验报告](reports/HiddenBench_MAF复现实验补充报告_2026-07-28.md)
+- [ID 25 完整可读对话](artifacts/hiddenbench-showcase-20260728-v2.md)
+- [ID 25 机器可读原始记录](artifacts/hiddenbench-showcase-20260728-v2.jsonl)
+- [十题完整机器可读记录](artifacts/hiddenbench-screening-20260728-v2.jsonl)
+- [十题指标汇总](artifacts/hiddenbench-screening-20260728-v2.md)
+
+这些指定的 v2 附件虽然位于通常被忽略的 `artifacts/` 目录，但已作为
+本次正式复现材料明确纳入版本控制。附件包含原始 Prompt、可见消息、
+60 条讨论、三种条件投票、指标和 SHA-256 manifest；不包含 API Key。

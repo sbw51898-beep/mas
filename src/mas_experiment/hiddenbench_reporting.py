@@ -249,8 +249,10 @@ def build_showcase_report(run: HiddenBenchRun) -> str:
             "## 9. MAST 自动候选（必须人工复核）",
             "",
             (
-                "以下 FM-2.4、FM-2.5、FM-2.6 记录由透明词法规则生成，"
-                "只是候选证据，不是已经确认的失败标签。"
+                "以下 FM-2.4、FM-2.5、FM-2.6 记录由透明的 "
+                "`lexical-semantic-v2` 规则生成。规则结合严格词汇覆盖、"
+                "轻量词形归一、原子事实、实体锚点、语义概念和极性冲突"
+                "保护；输出仍只是候选证据，不是已经确认的失败标签。"
             ),
             "",
         ]
@@ -310,8 +312,11 @@ def build_screening_report(runs: Sequence[HiddenBenchRun]) -> str:
             "样本、模型和重复次数不同，不能做统计等价或显著性声明。"
         ),
         "",
-        "| ID | Task | Y_pre | Y_post | Y_full | Gain | Full gap |",
-        "|---:|---|---:|---:|---:|---:|---:|",
+        (
+            "| ID | Task | Y_pre | Y_post | Y_full | Gain | "
+            "Disclosure | Cross-use |"
+        ),
+        "|---:|---|---:|---:|---:|---:|---:|---:|",
     ]
     for run in runs:
         metrics = run.metrics
@@ -321,7 +326,8 @@ def build_screening_report(runs: Sequence[HiddenBenchRun]) -> str:
             f"{metrics.y_post_average:.3f} | "
             f"{metrics.y_full_average:.3f} | "
             f"{metrics.integration_gain:.3f} | "
-            f"{metrics.full_profile_gap:.3f} |"
+            f"{metrics.private_fact_disclosure_rate:.3f} | "
+            f"{metrics.cross_agent_use_rate:.3f} |"
         )
     lines.extend(
         [
@@ -338,6 +344,10 @@ def build_screening_report(runs: Sequence[HiddenBenchRun]) -> str:
             f"{mean(run.metrics.integration_gain for run in runs):.3f}",
             f"- Full profile gap: "
             f"{mean(run.metrics.full_profile_gap for run in runs):.3f}",
+            f"- Private fact disclosure rate: "
+            f"{mean(run.metrics.private_fact_disclosure_rate for run in runs):.3f}",
+            f"- Cross-agent use rate: "
+            f"{mean(run.metrics.cross_agent_use_rate for run in runs):.3f}",
             f"- Total API requests: "
             f"{sum(run.metrics.api_requests for run in runs)}",
             f"- Total repair requests: "

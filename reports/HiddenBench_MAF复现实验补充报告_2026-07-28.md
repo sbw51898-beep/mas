@@ -1,4 +1,4 @@
-# HiddenBench 在 Microsoft Agent Framework 上的阶段复现实验报告
+# HiddenBench 在 Microsoft Agent Framework 上的复现实验报告
 
 ## 一、这次工作针对老师提出的两个问题
 
@@ -59,6 +59,33 @@ arXiv:2503.13657。
 MAST 标签在本项目中只用于人工诊断。程序生成的关键词候选不能直接
 视为已经确认的失败标签。
 
+### 3. Microsoft 框架与非 Microsoft 工作的关系
+
+老师提出的核心问题是：已有研究是否做过同类多智能体问题，以及这些
+研究是否使用 Microsoft 框架。本次查到的关系如下。
+
+| 研究/系统 | 研究的问题 | 使用的框架 | 与本实验的关系 |
+|---|---|---|---|
+| HiddenBench（Li et al., 2025） | 私有信息分散后，多智能体能否通过讨论得到正确答案 | 论文公开的是任务、Prompt 和评测协议，未把 Microsoft Agent Framework 作为实验变量 | 本实验直接复现其问题和十个官方案例，并迁移到 MAF |
+| AutoGen（Wu et al., 2023/2024） | 用可配置的多智能体对话完成数学、编程、问答和决策任务 | Microsoft AutoGen | 证明 Microsoft 系框架可以承载多智能体会话，但没有针对 HiddenBench 的分布式私有信息问题 |
+| Multiagent Debate（Du et al., 2023/2024） | 多个模型实例多轮辩论能否提高事实性和推理 | 论文采用自定义黑盒模型辩论流程，不依赖 MAF | 与本实验都使用多轮讨论，但它关注一般推理提升，本实验检验隐藏信息能否被披露和整合 |
+| MAST（Cemri et al., 2025） | 多智能体系统为什么失败 | 分析五种流行 MAS 框架上的 150 余项任务 | 为本实验的 FM-2.4/2.5/2.6 人工诊断提供分类依据，不是 HiddenBench 结果基线 |
+
+Microsoft 官方把 Agent Framework 定义为 AutoGen 和 Semantic Kernel
+的后继框架，提供显式的顺序、并发、分支和群体协作工作流。因此，本次
+工作的定位不是宣称发明了 HiddenBench 问题，而是把一个原本不以 MAF
+为实验变量的公开基准迁移到 MAF，并检查迁移后能否复现相同的集体推理
+困难。
+
+来源：
+
+- Microsoft Agent Framework：
+  https://learn.microsoft.com/en-us/agent-framework/overview/
+- AutoGen：https://arxiv.org/abs/2308.08155
+- Multiagent Debate：https://arxiv.org/abs/2305.14325
+- HiddenBench：https://arxiv.org/abs/2505.11556
+- MAST：https://arxiv.org/abs/2503.13657
+
 ## 三、复现方法
 
 ### 1. 技术环境
@@ -76,6 +103,17 @@ MAST 标签在本项目中只用于人工诊断。程序生成的关键词候选
 - 不因形成共识而提前结束；
 - 投票格式：`vote` 与 `rationale` 两个 JSON 字段；
 - 非法投票最多追加一次格式修复请求。
+
+这里的“轮转讨论”是**顺序异步讨论**，不是四名智能体同时生成：
+agent-a 先发言，agent-b 能看到 agent-a 的消息，agent-c 能看到前两条，
+agent-d 能看到前三条；下一轮继续读取此前累积的全部公开消息。固定顺序
+的目的是忠实保留 HiddenBench 的可审计讨论流程，并避免额外引入一个
+LLM 发言选择器。
+
+Agent 数量 4 也不是本次调出来的参数。HiddenBench 的 Hidden Profile
+任务为每题提供 4 组私有信息，本实验按官方结构一对一分给 4 名 Agent。
+因此本阶段不做 Agent 数量消融；如果改成 3 名或 5 名，就必须合并或拆分
+私有信息，已经不再是同一实验条件。
 
 ### 2. 三个实验条件
 
@@ -138,6 +176,25 @@ It’s your turn to speak.
 没有加入“其他智能体可能掌握不同信息”“请主动寻找信息不对称”等额外
 提示，避免改变原论文任务。
 
+### 4. 十题选择规则与固定种子
+
+十题均来自官方 `benchmark.json`，并在正式运行前写入配置文件锁定。
+选择规则是：每题必须有 4 组私有信息，能够与 4 名 Agent 一一对应；
+覆盖灾害、招聘、采购、医疗、安保、餐饮、IT 和投资等多个领域；包含
+由既有人类研究改编的任务；不能看到试跑结果后更换题目。
+
+固定设置为：
+
+```text
+task_ids = [1, 5, 7, 9, 13, 14, 16, 25, 47, 62]
+base_seed = 20260728
+dataset_sha256 =
+2815AFFFCA4E470D1DFBC81E625160447DF1109CE371968181C9E1E6B90443A3
+```
+
+每题只运行一个固定种子，所以这里的结果叫“十题单种子筛选”，不等同于
+原论文的 65 题多 session 主实验。
+
 ## 四、完整展示案例：HiddenBench ID 25
 
 任务名：`select_emergency_shelter`
@@ -174,10 +231,28 @@ Y_pre_average = 0.000
 - agent-c：指出 Delta 的系统已确认安全，建议 Delta；
 - agent-d：指出 Bravo 可能受到污染，但当时仍建议 Charlie。
 
+下面保留前两轮模型原话，不是事后改写：
+
+| 轮次/Agent | 原始发言 |
+|---|---|
+| R1 / agent-a | Given the power outage at Station Charlie and Station Alpha's recent restocking and backup generators, I propose we choose Station Alpha as our safest and most reliable shelter. |
+| R1 / agent-b | Station Alpha is unsafe due to elevated toxin levels from ventilation exposure, so we must rule it out and consider the remaining shelters. |
+| R1 / agent-c | Given the conflicting reports on Station Alpha and the confirmed safety of Station Delta's systems, I recommend we choose Station Delta as our shelter. |
+| R1 / agent-d | Given the conflicting reports on Station Alpha and the potential contamination near Station Bravo, I recommend we choose Station Charlie for its higher ground and solar power, despite its smaller size. |
+| R2 / agent-a | Given Station Alpha is unsafe due to toxins and Station Charlie has no power, I recommend we choose Station Delta, which is empty and has all roads open, making it the most viable option. |
+| R2 / agent-b | Given Station Alpha's toxin contamination and Station Charlie's power outage, I agree that Station Delta is the safest choice with open roads and no immediate hazards. |
+| R2 / agent-c | Given the confirmed toxin contamination at Station Alpha and power outage at Station Charlie, I agree with the consensus that Station Delta is the safest and most reliable shelter. |
+| R2 / agent-d | Based on the consensus from the team, I agree that Station Delta is the safest choice, as it is empty with open roads and no reported contamination or power issues. |
+
 第二轮开始，agent-a 综合 Alpha 污染、Charlie 无电和 Delta 道路开放
 等信息，改为支持 Delta。其余智能体也逐步支持 Delta。之后的讨论出现
 大量重复确认，说明关键信息在前两轮已经基本完成整合，后续 13 轮主要
 是在重复已经形成的结论。
+
+完整 15 轮、60 条原始发言，以及每次调用对应的 system prompt、
+user prompt、可见消息 ID 和三种条件投票，保存在随报告发布的
+`artifacts/hiddenbench-showcase-20260728-v2.jsonl` 与可读 Markdown
+附件中。
 
 ### 4. 讨论后与 Full Profile
 
@@ -198,19 +273,39 @@ full_profile_gap = 0.000
 这个案例说明，在信息分散时，四名智能体最初都判断错误；公开讨论披露
 关键信息后，系统从全错转为全对。
 
-### 5. 自动过程指标的误报
+### 5. 自动披露指标修正
 
 程序最初使用 `lexical-v1` 保守规则：一条发言必须至少命中私有事实的
-6 个实义词，并覆盖该事实词汇的 55%，才记为信息披露。
+6 个实义词，并覆盖该事实词汇的 55%，才记为信息披露。该规则能避免
+把一般性讨论误记为披露，但会漏掉压缩和释义表达。例如，Agent 把完整
+的 Alpha 通风检测报告概括为 “Station Alpha is unsafe due to elevated
+toxin levels”，含义已经披露，词汇覆盖率却不足 55%。
 
-Agent 实际采用了压缩和释义表达，例如把完整的 Alpha 通风检测报告概括
-为 “Station Alpha is unsafe due to elevated toxin levels”。因此自动
-指标错误地得到披露率 0，并生成四个 FM-2.4 候选。
+本次在不修改任何原始模型回答、不增加 DeepSeek 调用的前提下，将过程
+指标升级为 `lexical-semantic-v2`。新规则包括：
 
-人工检查原始对话后，可以确认四条私有信息都在第一轮披露，且随后被
-其他智能体用于判断。因此这四个 FM-2.4 候选是词法阈值造成的误报，
-不能作为真实失败结论。原始自动结果予以保留，避免在看到结果后修改
-规则；人工结论在报告中单独记录。
+1. 保留原来的 6 词、55% 严格词法闸门；
+2. 对 `exposed/exposure`、`expires/expiring` 等表达做轻量词形归一；
+3. 将长列表拆成原子事实，允许 Agent 披露其中一条决策相关私有信息；
+4. 使用 Station、Hospital、Restaurant、Lab、Option 和 Data Center
+   等实体锚点；
+5. 识别断电、污染、道路阻断、人员流失等有限、可检查的语义概念；
+6. 设置极性冲突保护，避免把“有电”当成“断电”、把“有污染”当成
+   “无污染”；
+7. 对 `(a) N` 一类结构化准则，同时核对实体、准则编号和通过/失败方向。
+
+修正后，ID 25 的四条私有信息全部被自动识别为已披露：
+
+```text
+private_fact_disclosure_rate = 1.000
+cross_agent_use_rate = 0.750
+FM-2.4 candidates = 0
+```
+
+`cross_agent_use_rate = 0.750` 表示四条私有事实中有三条在披露后被至少
+一名其他 Agent 明确复用。原来的四个 FM-2.4 候选已经消失。自动候选
+仍须人工复核，因为该规则是透明的任务级语义启发式，不是通用自然语言
+蕴含模型。
 
 ## 五、锁定十题筛选结果
 
@@ -221,6 +316,26 @@ Agent 实际采用了压缩和释义表达，例如把完整的 Alpha 通风检�
 ```
 
 每题只运行一个固定种子。
+
+### 十道题分别在问什么
+
+| ID | 通俗题目说明与私有信息作用 | 官方答案 |
+|---:|---|---|
+| 1 | 暴雨后选择 West City、East Town 或 North Hill 疏散。共享信息描述接待条件；四条私有信息分别说明补给车、火灾、步道和泥石流造成的路线阻断。 | West City |
+| 5 | 从 Stevens、Roberts、Jones 中选择大学校长。简历是共享信息，筹款、教学、创新态度、团队关系和行为记录分散在四名成员手中。 | Roberts |
+| 7 | 从三家公司中选择空中侦察系统方案。十项技术准则被拆散，每名 Agent 只掌握一部分“符合/不符合”记录，必须合并后比较。 | Starlight Incorporated |
+| 9 | 暴雨中把危重患者转送到三家医院之一。道路是否通行、ICU 是否可用、医生和床位状态是分散的实时私有信息。 | Hospital A |
+| 13 | 判断哪个实验室盗走原型。门禁、设备位置、人员清点和不在场证明分散在四名审查者手中。 | Lab Gamma |
+| 14 | 为有素食和严重贝类过敏成员的团队选餐厅。卫生警告、交叉污染、包场和停电后的菜单可用性分别隐藏。 | Restaurant C |
+| 16 | 勒索攻击后选择数据备份中心。资产冻结、Alpha 停电风险、Charlie 修复审计和 Bravo 临时经理风险分别隐藏。 | Charlie |
+| 25 | 化工事故后选择避难所。Alpha/Bravo 的污染、Charlie 无电、Delta 系统安全分别由不同 Agent 掌握。 | Station Delta |
+| 47 | 在会议室、储藏室和 CEO 办公室中寻找失踪原型。门禁、清洁、房门故障和装修封锁信息被分散。 | CEO's Office |
+| 62 | 从生物医药、AI 硬件和物流软件公司中选择收购对象。专利到期、工程师离职、合同不可转让和客户回归条件分别隐藏。 | Option C: Logistics software company |
+
+这张表回答“几个案例到底是什么题目”。每道题的完整英文场景、共享
+信息、四条私有信息、候选答案和实际分配仍以公开 JSONL 为准。
+
+### 正确率结果
 
 | ID | 任务 | Y_pre | Y_post | Y_full | 讨论增益 |
 |---:|---|---:|---:|---:|---:|
@@ -250,6 +365,42 @@ Agent 实际采用了压缩和释义表达，例如把完整的 Alpha 通风检�
 因此，这十题并不支持“共识等于正确”。讨论既可能整合信息，也可能
 让智能体围绕错误答案快速收敛。
 
+### 自动信息流指标
+
+使用同一批原始 JSONL 重新评分，没有重新调用模型，正确率和投票结果
+均未改变。
+
+| ID | 任务 | 私有信息披露率 | 跨 Agent 使用率 | FM-2.4 候选数 |
+|---:|---|---:|---:|---:|
+| 1 | evacuation_west_city | 0.750 | 0.750 | 1 |
+| 5 | baker_2010 | 0.750 | 0.500 | 1 |
+| 7 | graetz_et_al_1998 | 1.000 | 1.000 | 0 |
+| 9 | critical_hospital_transfer | 0.750 | 0.500 | 1 |
+| 13 | Laboratory Theft Deduction | 1.000 | 0.750 | 0 |
+| 14 | lunch_group_decision | 0.750 | 0.000 | 1 |
+| 16 | Crisis Backup Decision | 0.500 | 0.500 | 2 |
+| 25 | select_emergency_shelter | 1.000 | 1.000 | 0 |
+| 47 | Find the Missing Prototype | 1.000 | 0.750 | 0 |
+| 62 | company_acquisition_decision | 1.000 | 0.750 | 0 |
+| **平均/合计** |  | **0.850** | **0.650** | **6** |
+
+原 `lexical-v1` 在十题上的平均披露率为 0.025、跨 Agent 使用率为
+0.000。v2 修正为 0.850 和 0.650，说明旧结果主要反映词法漏检，不能
+解释为 Agent 普遍没有披露信息。
+
+仍保留的 6 个 FM-2.4 自动候选是：
+
+- ID 1 / agent-c：未公开“步道因倒树关闭”；
+- ID 5 / agent-a：未公开其候选人资料包中的决策相关私有点；
+- ID 9 / agent-a：未公开“Hospital A 山路已清理并确认安全”；
+- ID 14 / agent-b：未公开“Restaurant C 次餐厅仍对公众开放”；
+- ID 16 / agent-a：未公开“Charlie 电缆已修复并通过额外安全审计”；
+- ID 16 / agent-d：未公开“Bravo 临时负责人不熟悉应急流程”。
+
+人工复核这些所有者的 15 次发言后，没有发现能够推翻上述 6 个候选的
+明确表达，因此它们不是本轮已知的词法漏检；但最终是否构成 MAST
+FM-2.4，仍需结合任务重要性和完整上下文人工定性。
+
 ## 六、运行与审计
 
 - 单案例：72 次正式 API 调用，0 次格式修复；
@@ -259,22 +410,27 @@ Agent 实际采用了压缩和释义表达，例如把完整的 Alpha 通风检�
 - 修复发生在任务 62 的 hidden post / agent-a；
 - 原始输出把答案写成 `Option C`，不符合官方完整候选字符串；
 - 修复后得到 `Option C: Logistics software company`；
+- v2 信息披露重评分：0 次新增模型/API 请求，原始回答和投票未改动；
+- ID 25 自动披露率：由 0.000 修正为 1.000；
+- 十题平均自动披露率：由 0.025 修正为 0.850；
+- 十题平均跨 Agent 使用率：由 0.000 修正为 0.650；
 - 总输入 token：1,205,166；
 - 其中缓存读取 token：904,064；
 - 总输出 token：30,662；
 - 总 token：1,235,828；
-- 全套测试：133 项通过；
+- 全套测试：149 项通过；
 - 所有任务均为 60 条讨论消息；
 - manifest SHA-256 重新计算一致；
 - API Key、Authorization、Bearer 扫描：0 命中。
 
-代码提交：
+关键代码提交：
 
 ```text
-b31e8fe
+原始 HiddenBench 正式运行实现：b31e8fe
+自动披露指标 lexical-semantic-v2：69d9f7a
 ```
 
-GitHub：
+最终报告、代码和指定实验附件合并后统一从 `master` 获取：
 
 https://github.com/sbw51898-beep/mas
 
@@ -313,6 +469,10 @@ https://github.com/sbw51898-beep/mas
 - 保存每名 Agent 的实际可见信息；
 - 保存全部 system prompt、user prompt、原始回答和 60 条讨论；
 - 生成 JSONL、Markdown、manifest 和代码提交号；
+- 修复了自动信息披露指标的释义漏检，并增加反向陈述保护；
+- 说明了十道题分别是什么、4 个 Agent 的依据和顺序异步发言语义；
+- 对比了 HiddenBench、AutoGen、Multiagent Debate、MAST 与 MAF 的关系；
+- 将 ID 25 全部 60 条对话及十题原始记录作为可下载附件发布；
 - 发现讨论增益与错误共识同时存在。
 
 下一步不宜马上加入更多自定义参数。建议先做两件事：
@@ -324,11 +484,16 @@ https://github.com/sbw51898-beep/mas
 
 ## 九、附件
 
-- `artifacts/hiddenbench-showcase-20260728.jsonl`：ID 25 原始记录；
-- `artifacts/hiddenbench-showcase-20260728.md`：ID 25 完整可读档案；
-- `artifacts/hiddenbench-showcase-20260728.manifest.json`：单案例 hash；
-- `artifacts/hiddenbench-showcase-20260728.gate.json`：闸门 A 校验；
-- `artifacts/hiddenbench-screening-20260728.jsonl`：十题原始记录；
-- `artifacts/hiddenbench-screening-20260728.md`：十题汇总；
-- `artifacts/hiddenbench-screening-20260728.manifest.json`：十题 hash；
+- `artifacts/hiddenbench-showcase-20260728-v2.jsonl`：ID 25 完整机器可读记录，
+  含实际 system prompt、user prompt、可见消息 ID、原始回答和投票；
+- `artifacts/hiddenbench-showcase-20260728-v2.md`：ID 25 的 15 轮、60 条
+  完整可读讨论档案；
+- `artifacts/hiddenbench-showcase-20260728-v2.manifest.json`：单案例 hash；
+- `artifacts/hiddenbench-showcase-20260728-v2.gate.json`：闸门 A 校验；
+- `artifacts/hiddenbench-screening-20260728-v2.jsonl`：十题完整机器可读记录；
+- `artifacts/hiddenbench-screening-20260728-v2.md`：十题指标汇总；
+- `artifacts/hiddenbench-screening-20260728-v2.manifest.json`：十题 hash；
 - `docs/hiddenbench-reproduction.md`：完整复现手册。
+
+上述七个实验附件在本次提交中被明确纳入版本控制，不再只是本地
+`.gitignore` 下的临时文件。老师从 GitHub 下载仓库即可复核。

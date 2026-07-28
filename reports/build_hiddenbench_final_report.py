@@ -277,7 +277,7 @@ def add_title_page(doc):
     kicker = doc.add_paragraph()
     kicker.alignment = WD_ALIGN_PARAGRAPH.CENTER
     kicker.paragraph_format.space_after = Pt(14)
-    r = kicker.add_run("阶段复现实验最终报告")
+    r = kicker.add_run("复现实验最终报告")
     set_font(r, size=11, bold=True, color=BLUE)
 
     title = doc.add_paragraph()
@@ -376,8 +376,14 @@ def choose_widths(rows):
         if "agent" in first_header:
             return [1800, 7560]
         return [2400, 6960]
+    if cols == 3 and rows[0][0].strip().lower() == "id":
+        return [600, 7160, 1600]
+    if cols == 4 and "研究" in rows[0][0]:
+        return [1600, 2200, 1700, 3860]
     if cols == 6:
         return [600, 3380, 1120, 1120, 1120, 2020]
+    if cols == 5:
+        return [600, 3960, 1200, 1200, 2400]
     return [TABLE_WIDTH_DXA // cols] * cols
 
 
@@ -570,7 +576,7 @@ def main():
     add_title_page(doc)
     add_body_from_markdown(doc, SOURCE.read_text(encoding="utf-8"))
     audit(doc)
-    doc.core_properties.title = "HiddenBench 在 Microsoft Agent Framework 上的阶段复现实验最终报告"
+    doc.core_properties.title = "HiddenBench 在 Microsoft Agent Framework 上的复现实验最终报告"
     doc.core_properties.subject = "多智能体分布式信息整合复现实验"
     doc.core_properties.author = "MAS 知识治理项目组"
     doc.core_properties.keywords = "HiddenBench, Microsoft Agent Framework, MAST, MAS, DeepSeek"
