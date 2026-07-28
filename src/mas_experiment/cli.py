@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean
@@ -24,11 +26,29 @@ from mas_experiment.datasets import (
 )
 from mas_experiment.maf_adapter import (
     MAFModelProvider,
+    MAFPromptProvider,
     build_maf_concurrent,
     build_maf_group_chat,
     create_maf_agents,
     maf_runtime_info,
 )
+from mas_experiment.hiddenbench_data import (
+    HiddenBenchTask,
+    load_hiddenbench_task,
+    load_hiddenbench_tasks,
+)
+from mas_experiment.hiddenbench_domain import (
+    AGENT_IDS as HIDDENBENCH_AGENT_IDS,
+    HiddenBenchRun,
+    assign_hidden_information,
+)
+from mas_experiment.hiddenbench_metrics import score_hiddenbench_run
+from mas_experiment.hiddenbench_prompts import (
+    build_hidden_system_prompt,
+    build_vote_user_prompt,
+)
+from mas_experiment.hiddenbench_protocol import run_hiddenbench_task
+from mas_experiment.hiddenbench_reporting import write_hiddenbench_bundle
 from mas_experiment.orchestrations import (
     prepare_initial_state,
     run_dynamic,
@@ -41,6 +61,7 @@ from mas_experiment.providers import (
     DeepSeekSettings,
     DeterministicProvider,
     OpenAICompatibleSettings,
+    ScriptedPromptProvider,
 )
 from mas_experiment.reporting import (
     build_pilot_report,
@@ -66,6 +87,295 @@ class ScreeningCounts(NamedTuple):
     connectivity: int
     discussion: int
     logical_slots: int
+
+
+class HiddenBenchCounts(NamedTuple):
+    records: int
+    connectivity: int
+    api_requests: int
+    repair_requests: int
+    logical_slots: int
+
+
+HIDDENBENCH_DATASET = Path("data/hiddenbench/benchmark.json")
+HIDDENBENCH_CONFIG = Path("configs/hiddenbench-screening.json")
+
+
+def _load_hiddenbench_config() -> dict[str, Any]:
+    payload = json.loads(
+        HIDDENBENCH_CONFIG.read_text(encoding="utf-8")
+    )
+    if not isinstance(payload, dict):
+        raise RuntimeError("HiddenBench configuration must be an object")
+    return payload
+
+
+def _scripted_outputs(
+    script: Path,
+    task: HiddenBenchTask,
+) -> tuple[str, ...]:
+    payload = json.loads(script.read_text(encoding="utf-8"))
+    required = {
+        "pre_vote",
+        "discussion_template",
+        "post_vote",
+        "full_vote",
+    }
+    if not isinstance(payload, dict) or set(payload) != required:
+        raise typer.BadParameter(
+            "script must contain pre_vote, discussion_template, "
+            "post_vote, and full_vote"
+        )
+    if not all(isinstance(payload[key], str) for key in required):
+        raise typer.BadParameter("all script values must be strings")
+
+    def fill_vote(key: str) -> str:
+        return payload[key].replace("{answer}", task.correct_answer)
+
+    return (
+        *(fill_vote("pre_vote") for _ in HIDDENBENCH_AGENT_IDS),
+        *(
+            payload["discussion_template"].format(
+                index=index,
+                answer=task.correct_answer,
+            )
+            for index in range(60)
+        ),
+        *(fill_vote("post_vote") for _ in HIDDENBENCH_AGENT_IDS),
+        *(fill_vote("full_vote") for _ in HIDDENBENCH_AGENT_IDS),
+    )
+
+
+def create_hiddenbench_provider(
+    provider_name: str,
+    *,
+    task: HiddenBenchTask,
+    script: Path | None,
+) -> Any:
+    if provider_name == "scripted":
+        if script is None:
+            raise typer.BadParameter(
+                "--script is required for scripted provider"
+            )
+        return ScriptedPromptProvider(_scripted_outputs(script, task))
+    if provider_name == "deepseek":
+        return MAFPromptProvider(DeepSeekSettings.from_env())
+    raise typer.BadParameter("provider must be deepseek or scripted")
+
+
+def _artifact_paths(
+    output: Path,
+    *,
+    include_gate: bool,
+) -> tuple[Path, ...]:
+    paths = (
+        output,
+        output.with_suffix(".md"),
+        output.with_suffix(".manifest.json"),
+    )
+    if include_gate:
+        return (*paths, output.with_suffix(".gate.json"))
+    return paths
+
+
+def _refuse_existing_artifacts(
+    output: Path,
+    *,
+    include_gate: bool,
+    overwrite: bool,
+) -> None:
+    existing = [
+        path
+        for path in _artifact_paths(output, include_gate=include_gate)
+        if path.exists()
+    ]
+    if existing and not overwrite:
+        raise typer.BadParameter(
+            "HiddenBench artifact already exists: "
+            + ", ".join(str(path) for path in existing)
+        )
+
+
+def _validate_showcase_run(run: HiddenBenchRun) -> dict[str, bool]:
+    if run.task.id != 25:
+        raise RuntimeError("showcase gate requires HiddenBench task ID 25")
+    if len(run.assignment.private_information) != 4:
+        raise RuntimeError("showcase gate requires four private facts")
+    if len(set(run.assignment.private_information.values())) != 4:
+        raise RuntimeError("showcase private facts are not one-to-one")
+    if len(run.discussion_messages) != 60:
+        raise RuntimeError("showcase gate requires exactly 60 messages")
+    expected_speakers = tuple(
+        agent_id
+        for _ in range(15)
+        for agent_id in HIDDENBENCH_AGENT_IDS
+    )
+    if tuple(
+        message.agent_id for message in run.discussion_messages
+    ) != expected_speakers:
+        raise RuntimeError("showcase discussion order is not fixed round-robin")
+
+    hidden_items = (
+        *run.hidden_pre_votes,
+        *run.hidden_post_votes,
+        *run.discussion_messages,
+    )
+    for item in hidden_items:
+        own_fact = run.assignment.private_information[item.agent_id]
+        if own_fact not in item.system_prompt:
+            raise RuntimeError(
+                f"showcase prompt omits own fact for {item.agent_id}"
+            )
+        peer_facts = {
+            fact
+            for agent_id, fact
+            in run.assignment.private_information.items()
+            if agent_id != item.agent_id
+        }
+        if any(fact in item.system_prompt for fact in peer_facts):
+            raise RuntimeError(
+                f"showcase prompt leaks peer fact to {item.agent_id}"
+            )
+    public_contents = tuple(
+        message.content for message in run.discussion_messages
+    )
+    if any(
+        not all(content in vote.user_prompt for content in public_contents)
+        for vote in run.hidden_post_votes
+    ):
+        raise RuntimeError("showcase post vote does not contain full history")
+    if any(
+        not all(
+            fact in vote.system_prompt
+            for fact in run.task.hidden_information
+        )
+        for vote in run.full_profile_votes
+    ):
+        raise RuntimeError("showcase full profile omits private facts")
+    if any(
+        vote.vote not in run.task.possible_answers
+        for vote in (
+            *run.hidden_pre_votes,
+            *run.hidden_post_votes,
+            *run.full_profile_votes,
+        )
+    ):
+        raise RuntimeError("showcase contains an invalid vote")
+    return {
+        "task_id_25": True,
+        "one_to_one_private_information": True,
+        "hidden_prompt_isolation": True,
+        "fifteen_rounds_sixty_messages": True,
+        "post_vote_full_history": True,
+        "full_profile_complete": True,
+        "all_votes_parseable": True,
+    }
+
+
+async def _hiddenbench_connectivity_probe(
+    task: HiddenBenchTask,
+    provider: Any,
+    *,
+    seed: int,
+) -> int:
+    assignment = assign_hidden_information(task, seed=seed)
+    completion = await provider.complete(
+        agent_id=HIDDENBENCH_AGENT_IDS[0],
+        system_prompt=build_hidden_system_prompt(
+            task,
+            assignment,
+            HIDDENBENCH_AGENT_IDS[0],
+        ),
+        user_prompt=build_vote_user_prompt(
+            task,
+            (),
+            phase="hidden_pre",
+        ),
+        seed=seed,
+        json_response=True,
+    )
+    return int(
+        completion.provider_metadata.get("api_requests", 1) or 0
+    )
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _write_showcase_gate(
+    run: HiddenBenchRun,
+    manifest_path: Path,
+    gate_path: Path,
+) -> Path:
+    checks = _validate_showcase_run(run)
+    payload = {
+        "gate_version": "hiddenbench-showcase-v1",
+        "structural_validation_passed": True,
+        "showcase_task_id": run.task.id,
+        "run_id": run.run_id,
+        "configuration_fingerprint": run.configuration_fingerprint,
+        "dataset_sha256": _load_hiddenbench_config()["dataset_sha256"],
+        "manifest_sha256": _sha256(manifest_path),
+        "checks": checks,
+    }
+    gate_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    return gate_path
+
+
+def _gate_path_for_manifest(manifest_path: Path) -> Path:
+    suffix = ".manifest.json"
+    if not manifest_path.name.endswith(suffix):
+        raise typer.BadParameter(
+            "approved showcase manifest must end with .manifest.json"
+        )
+    return manifest_path.with_name(
+        manifest_path.name[: -len(suffix)] + ".gate.json"
+    )
+
+
+def _verify_showcase_gate(manifest_path: Path) -> HiddenBenchRun:
+    if not manifest_path.exists():
+        raise typer.BadParameter(
+            f"approved showcase manifest not found: {manifest_path}"
+        )
+    gate_path = _gate_path_for_manifest(manifest_path)
+    if not gate_path.exists():
+        raise typer.BadParameter(f"showcase gate not found: {gate_path}")
+    gate = json.loads(gate_path.read_text(encoding="utf-8"))
+    if gate.get("manifest_sha256") != _sha256(manifest_path):
+        raise typer.BadParameter("showcase manifest hash mismatch")
+    if gate.get("structural_validation_passed") is not True:
+        raise typer.BadParameter("showcase structural gate did not pass")
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    jsonl_entries = [
+        item for item in manifest.get("files", [])
+        if str(item.get("path", "")).endswith(".jsonl")
+    ]
+    if len(jsonl_entries) != 1:
+        raise typer.BadParameter(
+            "showcase manifest must contain one JSONL file"
+        )
+    entry = jsonl_entries[0]
+    jsonl_path = manifest_path.parent / entry["path"]
+    if not jsonl_path.exists() or _sha256(jsonl_path) != entry["sha256"]:
+        raise typer.BadParameter("showcase JSONL hash mismatch")
+    records = [
+        line
+        for line in jsonl_path.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    if len(records) != 1:
+        raise typer.BadParameter("showcase JSONL must contain one run")
+    run = HiddenBenchRun.model_validate_json(records[0])
+    _validate_showcase_run(run)
+    return run
 
 
 def create_formal_provider(provider_name: str) -> Any:
@@ -304,6 +614,141 @@ async def _run_screening_pilot(
     )
 
 
+async def _run_hiddenbench_showcase(
+    *,
+    provider_name: str,
+    script: Path | None,
+    output: Path,
+    seed: int,
+    skip_connectivity: bool,
+) -> HiddenBenchCounts:
+    config = _load_hiddenbench_config()
+    task = load_hiddenbench_task(
+        HIDDENBENCH_DATASET,
+        task_id=int(config["showcase_task_id"]),
+        expected_sha256=str(config["dataset_sha256"]),
+    )
+    provider = create_hiddenbench_provider(
+        provider_name,
+        task=task,
+        script=script,
+    )
+    connectivity_requests = 0
+    if provider_name == "deepseek" and not skip_connectivity:
+        connectivity_requests = await _hiddenbench_connectivity_probe(
+            task,
+            provider,
+            seed=seed,
+        )
+    raw_run = await run_hiddenbench_task(
+        task,
+        provider,
+        seed=seed,
+        discussion_rounds=int(config["discussion_rounds"]),
+    )
+    run = score_hiddenbench_run(raw_run)
+    _validate_showcase_run(run)
+    _, _, manifest_path = write_hiddenbench_bundle(
+        (run,),
+        output,
+        report_kind="showcase",
+    )
+    _write_showcase_gate(
+        run,
+        manifest_path,
+        output.with_suffix(".gate.json"),
+    )
+    return HiddenBenchCounts(
+        records=1,
+        connectivity=connectivity_requests,
+        api_requests=run.metrics.api_requests,
+        repair_requests=run.metrics.repair_requests,
+        logical_slots=int(
+            run.provider_metadata.get("logical_response_slots", 0)
+        ),
+    )
+
+
+async def _run_hiddenbench_screening(
+    *,
+    provider_name: str,
+    script: Path | None,
+    approved_showcase_manifest: Path,
+    output: Path,
+    base_seed: int,
+    skip_connectivity: bool,
+) -> HiddenBenchCounts:
+    _verify_showcase_gate(approved_showcase_manifest)
+    config = _load_hiddenbench_config()
+    all_tasks = load_hiddenbench_tasks(
+        HIDDENBENCH_DATASET,
+        expected_sha256=str(config["dataset_sha256"]),
+    )
+    by_id = {task.id: task for task in all_tasks}
+    task_ids = tuple(int(value) for value in config["screening_task_ids"])
+    tasks = tuple(by_id[task_id] for task_id in task_ids)
+
+    shared_provider = (
+        create_hiddenbench_provider(
+            provider_name,
+            task=tasks[0],
+            script=script,
+        )
+        if provider_name == "deepseek"
+        else None
+    )
+    connectivity_requests = 0
+    if (
+        provider_name == "deepseek"
+        and not skip_connectivity
+        and shared_provider is not None
+    ):
+        connectivity_requests = await _hiddenbench_connectivity_probe(
+            tasks[0],
+            shared_provider,
+            seed=base_seed,
+        )
+
+    runs: list[HiddenBenchRun] = []
+    for task_index, task in enumerate(tasks):
+        seed = base_seed + task_index * 100
+        provider = shared_provider or create_hiddenbench_provider(
+            provider_name,
+            task=task,
+            script=script,
+        )
+        raw_run = await run_hiddenbench_task(
+            task,
+            provider,
+            seed=seed,
+            discussion_rounds=int(config["discussion_rounds"]),
+        )
+        runs.append(score_hiddenbench_run(raw_run))
+
+    write_hiddenbench_bundle(
+        tuple(runs),
+        output,
+        report_kind="screening",
+    )
+    return HiddenBenchCounts(
+        records=len(runs),
+        connectivity=connectivity_requests,
+        api_requests=sum(run.metrics.api_requests for run in runs),
+        repair_requests=sum(
+            run.metrics.repair_requests for run in runs
+        ),
+        logical_slots=sum(
+            int(
+                run.provider_metadata.get(
+                    "logical_response_slots",
+                    0,
+                )
+            )
+            for run in runs
+        ),
+    )
+
+
 async def _run_experiments(
     *,
     provider_name: str,
@@ -502,6 +947,114 @@ def screening_pilot_command(
         f"records={counts.records}; "
         f"connectivity API requests={counts.connectivity}; "
         f"discussion API requests={counts.discussion}; "
+        f"logical response slots={counts.logical_slots}; "
+        f"report={output.with_suffix('.md')}; "
+        f"manifest={output.with_suffix('.manifest.json')}"
+    )
+
+
+@app.command("hiddenbench-showcase")
+def hiddenbench_showcase_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination JSONL file."),
+    ] = Path("artifacts/hiddenbench-showcase-20260728.jsonl"),
+    provider: Annotated[
+        str,
+        typer.Option(help="deepseek or scripted"),
+    ] = "deepseek",
+    script: Annotated[
+        Path | None,
+        typer.Option(help="Strict offline script for scripted provider."),
+    ] = None,
+    seed: Annotated[int, typer.Option()] = 20260728,
+    skip_connectivity: Annotated[
+        bool,
+        typer.Option(help="Skip the uncounted connectivity probe."),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(help="Replace existing showcase artifacts."),
+    ] = False,
+) -> None:
+    _refuse_existing_artifacts(
+        output,
+        include_gate=True,
+        overwrite=overwrite,
+    )
+    counts = asyncio.run(
+        _run_hiddenbench_showcase(
+            provider_name=provider,
+            script=script,
+            output=output,
+            seed=seed,
+            skip_connectivity=skip_connectivity,
+        )
+    )
+    typer.echo(
+        f"Completed HiddenBench showcase -> {output}; "
+        f"records={counts.records}; "
+        f"connectivity API requests={counts.connectivity}; "
+        f"formal API requests={counts.api_requests}; "
+        f"repair requests={counts.repair_requests}; "
+        f"logical response slots={counts.logical_slots}; "
+        f"report={output.with_suffix('.md')}; "
+        f"manifest={output.with_suffix('.manifest.json')}; "
+        f"gate={output.with_suffix('.gate.json')}"
+    )
+
+
+@app.command("hiddenbench-screening")
+def hiddenbench_screening_command(
+    approved_showcase_manifest: Annotated[
+        Path,
+        typer.Option(
+            help="Validated ID 25 showcase manifest approved by the user."
+        ),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination JSONL file."),
+    ] = Path("artifacts/hiddenbench-screening-20260728.jsonl"),
+    provider: Annotated[
+        str,
+        typer.Option(help="deepseek or scripted"),
+    ] = "deepseek",
+    script: Annotated[
+        Path | None,
+        typer.Option(help="Strict offline script for scripted provider."),
+    ] = None,
+    base_seed: Annotated[int, typer.Option()] = 20260728,
+    skip_connectivity: Annotated[
+        bool,
+        typer.Option(help="Skip the uncounted connectivity probe."),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(help="Replace existing screening artifacts."),
+    ] = False,
+) -> None:
+    _refuse_existing_artifacts(
+        output,
+        include_gate=False,
+        overwrite=overwrite,
+    )
+    counts = asyncio.run(
+        _run_hiddenbench_screening(
+            provider_name=provider,
+            script=script,
+            approved_showcase_manifest=approved_showcase_manifest,
+            output=output,
+            base_seed=base_seed,
+            skip_connectivity=skip_connectivity,
+        )
+    )
+    typer.echo(
+        f"Completed HiddenBench screening -> {output}; "
+        f"records={counts.records}; "
+        f"connectivity API requests={counts.connectivity}; "
+        f"formal API requests={counts.api_requests}; "
+        f"repair requests={counts.repair_requests}; "
         f"logical response slots={counts.logical_slots}; "
         f"report={output.with_suffix('.md')}; "
         f"manifest={output.with_suffix('.manifest.json')}"

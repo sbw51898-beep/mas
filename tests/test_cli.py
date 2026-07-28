@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import mas_experiment.cli as cli
 
 from typer.testing import CliRunner
@@ -11,6 +14,10 @@ from mas_experiment.traces import read_results
 
 
 runner = CliRunner()
+ROOT = Path(__file__).parents[1]
+HIDDENBENCH_SCRIPT = (
+    ROOT / "tests" / "fixtures" / "hiddenbench_script.json"
+)
 
 
 class FailingInitialProvider(DeterministicProvider):
@@ -234,3 +241,182 @@ def test_screening_pilot_writes_twenty_four_matched_records_and_audit(
     assert output.with_suffix(".manifest.json").exists()
     assert "records=24" in result.output
     assert "discussion API requests=162" in result.output
+
+
+def test_hiddenbench_showcase_writes_complete_gated_bundle(
+    tmp_path,
+) -> None:
+    output = tmp_path / "showcase.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-showcase",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    record = json.loads(output.read_text(encoding="utf-8"))
+    assert record["task"]["id"] == 25
+    assert len(record["discussion_messages"]) == 60
+    assert output.with_suffix(".md").exists()
+    assert output.with_suffix(".manifest.json").exists()
+    assert output.with_suffix(".gate.json").exists()
+    assert "logical response slots=72" in result.output
+
+
+def test_hiddenbench_showcase_refuses_existing_artifact(tmp_path) -> None:
+    output = tmp_path / "showcase.jsonl"
+    output.write_text("existing", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-showcase",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "already exists" in result.output
+    assert output.read_text(encoding="utf-8") == "existing"
+
+
+def test_hiddenbench_screening_requires_approved_showcase_manifest(
+    tmp_path,
+) -> None:
+    output = tmp_path / "screening.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-screening",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "approved-showcase-manifest" in result.output
+    assert not output.exists()
+
+
+def test_hiddenbench_screening_runs_only_locked_ids_after_gate(
+    tmp_path,
+) -> None:
+    showcase = tmp_path / "showcase.jsonl"
+    showcase_result = runner.invoke(
+        app,
+        [
+            "hiddenbench-showcase",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--output",
+            str(showcase),
+            "--skip-connectivity",
+        ],
+    )
+    assert showcase_result.exit_code == 0, showcase_result.output
+    output = tmp_path / "screening.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-screening",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--approved-showcase-manifest",
+            str(showcase.with_suffix(".manifest.json")),
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    records = [
+        json.loads(line)
+        for line in output.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    assert len(records) == 10
+    assert {record["task"]["id"] for record in records} == {
+        1,
+        5,
+        7,
+        9,
+        13,
+        14,
+        16,
+        25,
+        47,
+        62,
+    }
+    assert all(len(record["discussion_messages"]) == 60 for record in records)
+    assert "logical response slots=720" in result.output
+
+
+def test_hiddenbench_screening_rejects_tampered_manifest(tmp_path) -> None:
+    showcase = tmp_path / "showcase.jsonl"
+    showcase_result = runner.invoke(
+        app,
+        [
+            "hiddenbench-showcase",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--output",
+            str(showcase),
+            "--skip-connectivity",
+        ],
+    )
+    assert showcase_result.exit_code == 0, showcase_result.output
+    manifest = showcase.with_suffix(".manifest.json")
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8") + "\n",
+        encoding="utf-8",
+    )
+    output = tmp_path / "screening.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-screening",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--approved-showcase-manifest",
+            str(manifest),
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "manifest hash mismatch" in result.output
+    assert not output.exists()
