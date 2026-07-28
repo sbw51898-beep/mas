@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mas-experiment"
+version = "0.1.0"
+description = "Reproducible MAF multi-agent governance experiments"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.12,<3",
+    "typer>=0.16,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4,<9",
+    "pytest-asyncio>=1.1,<2",
+]
+maf = [
+    "agent-framework-core>=1.12.1,<2",
+    "agent-framework-orchestrations>=1.0.1,<2",
+    "agent-framework-openai>=1.11.0,<2",
+]
+
+[project.scripts]
+mas-experiment = "mas_experiment.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+asyncio_mode = "auto"

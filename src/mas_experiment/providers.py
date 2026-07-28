@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from collections.abc import Sequence
+from datetime import datetime, timedelta, timezone
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, SecretStr
+
+from mas_experiment.domain import (
+    AgentResponse,
+    AgentRole,
+    Message,
+    Question,
+)
+from mas_experiment.hiddenbench_domain import PromptCompletion
+
+
+class ConfigurationError(ValueError):
+    """Raised when a real-model provider is not fully configured."""
+
+
+class OpenAICompatibleSettings(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_key: SecretStr
+    base_url: str
+    model: str
+
+    @classmethod
+    def from_env(cls) -> OpenAICompatibleSettings:
+        names = (
+            "OPENAI_API_KEY",
+            "OPENAI_BASE_URL",
+            "OPENAI_CHAT_COMPLETION_MODEL",
+        )
+        missing = [name for name in names if not os.environ.get(name)]
+        if missing:
+            raise ConfigurationError(
+                "missing required environment variables: " + ", ".join(missing)
+            )
+        return cls(
+            api_key=SecretStr(os.environ["OPENAI_API_KEY"]),
+            base_url=os.environ["OPENAI_BASE_URL"],
+            model=os.environ["OPENAI_CHAT_COMPLETION_MODEL"],
+        )
+
+
+class DeepSeekSettings(OpenAICompatibleSettings):
+    base_url: str = "https://api.deepseek.com"
+    model: str = "deepseek-v4-flash"
+    thinking: Literal["disabled"] = "disabled"
+    temperature: float = 0.0
+
+    @classmethod
+    def from_env(cls) -> DeepSeekSettings:
+        base = OpenAICompatibleSettings.from_env()
+        if base.base_url.rstrip("/") != "https://api.deepseek.com":
+            raise ConfigurationError(
+                "formal pilot requires OPENAI_BASE_URL="
+                "https://api.deepseek.com"
+            )
+        if base.model != "deepseek-v4-flash":
+            raise ConfigurationError(
+                "formal pilot requires deepseek-v4-flash"
+            )
+        return cls(
+            api_key=base.api_key,
+            base_url="https://api.deepseek.com",
+            model="deepseek-v4-flash",
+        )
+
+
+class DeterministicProvider:
+    """Offline provider for validating mechanics, never model quality."""
+
+    async def generate(
+        self,
+        *,
+        question: Question,
+        role: AgentRole,
+        round_index: int,
+        visible_messages: tuple[Message, ...],
+        seed: int,
+    ) -> AgentResponse:
+        visible_ids = ",".join(message.message_id for message in visible_messages)
+        payload = (
+            f"{seed}|{question.question_id}|{role.agent_id}|"
+            f"{round_index}|{visible_ids}"
+        )
+        digest = hashlib.sha256(payload.encode("utf-8")).digest()
+        options = tuple(question.options)
+        weights = [digest[index] + 1 for index in range(len(options))]
+        total = sum(weights)
+        probabilities = {
+            option: weight / total
+            for option, weight in zip(options, weights, strict=True)
+        }
+        maximum = max(probabilities.values())
+        answer = next(
+            option
+            for option in options
+            if probabilities[option] == maximum
+        )
+        raw_payload = {
+            "answer": answer,
+            "probabilities": probabilities,
+            "reasoning": (
+                f"Offline deterministic response for {question.question_id} "
+                f"from {role.agent_id}."
+            ),
+        }
+        timestamp_offset = int.from_bytes(digest[2:6], "big") % (365 * 24 * 3600)
+        timestamp = datetime(2026, 1, 1, tzinfo=timezone.utc) + timedelta(
+            seconds=timestamp_offset
+        )
+        return AgentResponse(
+            response_id=digest.hex()[:16],
+            agent_id=role.agent_id,
+            round_index=round_index,
+            answer=answer,
+            probabilities=probabilities,
+            reasoning=raw_payload["reasoning"],
+            raw_text=json.dumps(raw_payload, ensure_ascii=False, sort_keys=True),
+            changed_from_previous=False,
+            timestamp=timestamp,
+        )
+
+
+class ScriptedPromptProvider:
+    """Strict offline prompt provider for protocol and CLI validation."""
+
+    def __init__(self, outputs: Sequence[str]) -> None:
+        self._outputs = tuple(outputs)
+        self.calls: list[dict[str, object]] = []
+
+    async def complete(
+        self,
+        *,
+        agent_id: str,
+        system_prompt: str,
+        user_prompt: str,
+        seed: int,
+        json_response: bool,
+    ) -> PromptCompletion:
+        call_index = len(self.calls)
+        if call_index >= len(self._outputs):
+            raise RuntimeError(
+                f"script exhausted after {call_index} calls"
+            )
+        self.calls.append(
+            {
+                "agent_id": agent_id,
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "seed": seed,
+                "json_response": json_response,
+            }
+        )
+        return PromptCompletion(
+            text=self._outputs[call_index],
+            provider_metadata={
+                "provider": "scripted-offline",
+                "model": "scripted-offline",
+                "api_requests": 0,
+                "repair_requests": 0,
+                "usage": {},
+            },
+        )

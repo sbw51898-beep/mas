@@ -1,0 +1,6 @@
+{
+  "pre_vote": "{\"vote\":\"{answer}\",\"rationale\":\"Offline pre vote.\"}",
+  "discussion_template": "Offline discussion statement {index:02d}.",
+  "post_vote": "{\"vote\":\"{answer}\",\"rationale\":\"Offline post vote.\"}",
+  "full_vote": "{\"vote\":\"{answer}\",\"rationale\":\"Offline full-profile vote.\"}"
+}

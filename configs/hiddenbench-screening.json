@@ -1,0 +1,25 @@
+{
+  "configuration_version": "hiddenbench-maf-v1",
+  "agent_ids": [
+    "agent-a",
+    "agent-b",
+    "agent-c",
+    "agent-d"
+  ],
+  "discussion_rounds": 15,
+  "showcase_task_id": 25,
+  "screening_task_ids": [
+    1,
+    5,
+    7,
+    9,
+    13,
+    14,
+    16,
+    25,
+    47,
+    62
+  ],
+  "base_seed": 20260728,
+  "dataset_sha256": "2815AFFFCA4E470D1DFBC81E625160447DF1109CE371968181C9E1E6B90443A3"
+}

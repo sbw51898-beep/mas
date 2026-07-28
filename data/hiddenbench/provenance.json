@@ -1,0 +1,10 @@
+{
+  "dataset": "YuxuanLi1225/HiddenBench",
+  "source_url": "https://huggingface.co/datasets/YuxuanLi1225/HiddenBench",
+  "source_file": "benchmark.json",
+  "license": "MIT",
+  "record_count": 65,
+  "sha256": "2815AFFFCA4E470D1DFBC81E625160447DF1109CE371968181C9E1E6B90443A3",
+  "paper_url": "https://arxiv.org/abs/2505.11556",
+  "paper_version": "arXiv:2505.11556v4"
+}
