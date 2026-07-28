@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from agent_framework import Agent
@@ -24,6 +24,7 @@ from mas_experiment.domain import (
     Message,
     Question,
 )
+from mas_experiment.hiddenbench_domain import PromptCompletion
 from mas_experiment.providers import OpenAICompatibleSettings
 
 
@@ -41,15 +42,21 @@ def maf_runtime_info() -> dict[str, str]:
     }
 
 
-def create_maf_agents(
+def create_chat_client(
     settings: OpenAICompatibleSettings,
-    roles: tuple[AgentRole, ...],
-) -> tuple[Agent, ...]:
-    client = OpenAIChatCompletionClient(
+) -> OpenAIChatCompletionClient:
+    return OpenAIChatCompletionClient(
         model=settings.model,
         api_key=settings.api_key.get_secret_value(),
         base_url=settings.base_url,
     )
+
+
+def create_maf_agents(
+    settings: OpenAICompatibleSettings,
+    roles: tuple[AgentRole, ...],
+) -> tuple[Agent, ...]:
+    client = create_chat_client(settings)
     return tuple(
         Agent(
             client,
@@ -58,6 +65,19 @@ def create_maf_agents(
             description=role.name,
         )
         for role in roles
+    )
+
+
+def create_prompt_agent(
+    client: Any,
+    agent_id: str,
+    system_prompt: str,
+) -> Agent:
+    return Agent(
+        client,
+        instructions=system_prompt,
+        name=agent_id,
+        description=f"HiddenBench participant {agent_id}",
     )
 
 
@@ -117,6 +137,16 @@ _DEEPSEEK_OPTIONS = {
 }
 
 
+def _deepseek_options(*, json_response: bool) -> dict[str, Any]:
+    options: dict[str, Any] = {
+        "temperature": 0,
+        "extra_body": {"thinking": {"type": "disabled"}},
+    }
+    if json_response:
+        options["response_format"] = {"type": "json_object"}
+    return options
+
+
 def _plain_mapping(value: Any) -> dict[str, Any]:
     if value is None:
         return {}
@@ -140,6 +170,29 @@ def _sum_usage(
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 totals[key] = totals.get(key, 0) + value
     return totals
+
+
+def _build_provider_metadata(
+    result: Any,
+    *,
+    usage_records: list[dict[str, Any]],
+    request_ids: list[str],
+    repair_requests: int,
+) -> dict[str, Any]:
+    additional = _plain_mapping(
+        getattr(result, "additional_properties", None)
+    )
+    return {
+        "provider": "deepseek",
+        "model": additional.get("model", "deepseek-v4-flash"),
+        "thinking": "disabled",
+        "temperature": 0,
+        "repair_requests": repair_requests,
+        "api_requests": len(usage_records),
+        "usage": _sum_usage(usage_records),
+        "request_id": request_ids[-1] if request_ids else None,
+        "request_ids": request_ids,
+    }
 
 
 class MAFModelProvider:
@@ -236,9 +289,6 @@ class MAFModelProvider:
         response_key = (
             f"{role.agent_id}|{round_index}|{raw_text}"
         ).encode("utf-8")
-        additional = _plain_mapping(
-            getattr(result, "additional_properties", None)
-        )
         return AgentResponse(
             response_id=hashlib.sha256(response_key).hexdigest()[:16],
             agent_id=role.agent_id,
@@ -249,18 +299,61 @@ class MAFModelProvider:
             raw_text=raw_text,
             changed_from_previous=False,
             answer_tie_break=answer_tie_break,
-            provider_metadata={
-                "provider": "deepseek",
-                "model": additional.get(
-                    "model",
-                    "deepseek-v4-flash",
-                ),
-                "thinking": "disabled",
-                "temperature": 0,
-                "repair_requests": repair_requests,
-                "api_requests": 1 + repair_requests,
-                "usage": _sum_usage(usage_records),
-                "request_id": request_ids[-1] if request_ids else None,
-                "request_ids": request_ids,
-            },
+            provider_metadata=_build_provider_metadata(
+                result,
+                usage_records=usage_records,
+                request_ids=request_ids,
+                repair_requests=repair_requests,
+            ),
+        )
+
+
+class MAFPromptProvider:
+    def __init__(
+        self,
+        settings: OpenAICompatibleSettings,
+        *,
+        agent_factory: Callable[[Any, str, str], Any] = create_prompt_agent,
+    ) -> None:
+        self._client = create_chat_client(settings)
+        self._agent_factory = agent_factory
+        self._agents: dict[tuple[str, str], Any] = {}
+
+    async def complete(
+        self,
+        *,
+        agent_id: str,
+        system_prompt: str,
+        user_prompt: str,
+        seed: int,
+        json_response: bool,
+    ) -> PromptCompletion:
+        del seed
+        system_hash = hashlib.sha256(
+            system_prompt.encode("utf-8")
+        ).hexdigest()
+        key = (agent_id, system_hash)
+        if key not in self._agents:
+            self._agents[key] = self._agent_factory(
+                self._client,
+                agent_id,
+                system_prompt,
+            )
+        result = await self._agents[key].run(
+            user_prompt,
+            options=_deepseek_options(json_response=json_response),
+        )
+        response_id = getattr(result, "response_id", None)
+        request_ids = [str(response_id)] if response_id else []
+        usage_records = [
+            _plain_mapping(getattr(result, "usage_details", None))
+        ]
+        return PromptCompletion(
+            text=_extract_text(result),
+            provider_metadata=_build_provider_metadata(
+                result,
+                usage_records=usage_records,
+                request_ids=request_ids,
+                repair_requests=0,
+            ),
         )

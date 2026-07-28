@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -14,6 +15,7 @@ from mas_experiment.domain import (
     Message,
     Question,
 )
+from mas_experiment.hiddenbench_domain import PromptCompletion
 
 
 class ConfigurationError(ValueError):
@@ -124,4 +126,46 @@ class DeterministicProvider:
             raw_text=json.dumps(raw_payload, ensure_ascii=False, sort_keys=True),
             changed_from_previous=False,
             timestamp=timestamp,
+        )
+
+
+class ScriptedPromptProvider:
+    """Strict offline prompt provider for protocol and CLI validation."""
+
+    def __init__(self, outputs: Sequence[str]) -> None:
+        self._outputs = tuple(outputs)
+        self.calls: list[dict[str, object]] = []
+
+    async def complete(
+        self,
+        *,
+        agent_id: str,
+        system_prompt: str,
+        user_prompt: str,
+        seed: int,
+        json_response: bool,
+    ) -> PromptCompletion:
+        call_index = len(self.calls)
+        if call_index >= len(self._outputs):
+            raise RuntimeError(
+                f"script exhausted after {call_index} calls"
+            )
+        self.calls.append(
+            {
+                "agent_id": agent_id,
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "seed": seed,
+                "json_response": json_response,
+            }
+        )
+        return PromptCompletion(
+            text=self._outputs[call_index],
+            provider_metadata={
+                "provider": "scripted-offline",
+                "model": "scripted-offline",
+                "api_requests": 0,
+                "repair_requests": 0,
+                "usage": {},
+            },
         )

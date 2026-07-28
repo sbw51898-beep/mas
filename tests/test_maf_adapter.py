@@ -13,6 +13,7 @@ from mas_experiment.datasets import (
 )
 from mas_experiment.maf_adapter import (
     MAFModelProvider,
+    MAFPromptProvider,
     build_maf_concurrent,
     build_maf_group_chat,
     create_maf_agents,
@@ -205,3 +206,119 @@ async def test_invalid_payload_gets_one_repair_request() -> None:
     assert len(agent.prompts) == 2
     assert "Repair the following invalid JSON response" in agent.prompts[1]
     assert response.provider_metadata["repair_requests"] == 1
+
+
+@pytest.mark.asyncio
+async def test_maf_prompt_provider_uses_real_agent_instructions() -> None:
+    class FakeAgent:
+        def __init__(self) -> None:
+            self.prompts: list[str] = []
+            self.options: list[dict] = []
+
+        async def run(
+            self,
+            prompt: str,
+            *,
+            options: dict | None = None,
+        ) -> SimpleNamespace:
+            self.prompts.append(prompt)
+            self.options.append(options or {})
+            return SimpleNamespace(
+                text="raw model text",
+                response_id="raw-request-1",
+                usage_details={"input_token_count": 7},
+                additional_properties={"model": "test-model"},
+            )
+
+    class FakeAgentFactory:
+        def __init__(self) -> None:
+            self.instructions: list[str] = []
+            self.agents: list[FakeAgent] = []
+
+        def __call__(
+            self,
+            client: object,
+            agent_id: str,
+            system_prompt: str,
+        ) -> FakeAgent:
+            del client, agent_id
+            self.instructions.append(system_prompt)
+            agent = FakeAgent()
+            self.agents.append(agent)
+            return agent
+
+    settings = OpenAICompatibleSettings(
+        api_key=SecretStr("test-key"),
+        base_url="https://example.test/v1",
+        model="test-model",
+    )
+    factory = FakeAgentFactory()
+    provider = MAFPromptProvider(settings, agent_factory=factory)
+
+    completion = await provider.complete(
+        agent_id="agent-a",
+        system_prompt="system exact",
+        user_prompt="user exact",
+        seed=20260728,
+        json_response=False,
+    )
+
+    assert factory.instructions == ["system exact"]
+    assert factory.agents[0].prompts == ["user exact"]
+    assert completion.text == "raw model text"
+    assert completion.provider_metadata["api_requests"] == 1
+    assert completion.provider_metadata["thinking"] == "disabled"
+    assert completion.provider_metadata["temperature"] == 0
+    assert "response_format" not in factory.agents[0].options[0]
+
+
+@pytest.mark.asyncio
+async def test_maf_prompt_provider_only_forces_json_when_requested() -> None:
+    class CapturingAgent:
+        def __init__(self) -> None:
+            self.options: list[dict] = []
+
+        async def run(
+            self,
+            prompt: str,
+            *,
+            options: dict | None = None,
+        ) -> SimpleNamespace:
+            del prompt
+            self.options.append(options or {})
+            return SimpleNamespace(text='{"vote":"A","rationale":"R"}')
+
+    agent = CapturingAgent()
+
+    def factory(
+        client: object,
+        agent_id: str,
+        system_prompt: str,
+    ) -> CapturingAgent:
+        del client, agent_id, system_prompt
+        return agent
+
+    settings = OpenAICompatibleSettings(
+        api_key=SecretStr("test-key"),
+        base_url="https://example.test/v1",
+        model="test-model",
+    )
+    provider = MAFPromptProvider(settings, agent_factory=factory)
+
+    await provider.complete(
+        agent_id="agent-a",
+        system_prompt="system",
+        user_prompt="discussion",
+        seed=1,
+        json_response=False,
+    )
+    await provider.complete(
+        agent_id="agent-a",
+        system_prompt="system",
+        user_prompt="vote",
+        seed=1,
+        json_response=True,
+    )
+
+    assert "response_format" not in agent.options[0]
+    assert agent.options[1]["response_format"] == {"type": "json_object"}
