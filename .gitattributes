@@ -1,3 +1,8 @@
 # HiddenBench provenance checks hash the exact official dataset bytes.
 # Force LF on every platform so Windows checkout does not alter the snapshot.
 data/hiddenbench/benchmark.json text eol=lf
+
+# Published experiment bundles are hashed byte-for-byte by their manifests.
+# Disable line-ending normalization so a checkout preserves those hashes.
+artifacts/hiddenbench-showcase-20260728-v2.* -text
+artifacts/hiddenbench-screening-20260728-v2.* -text

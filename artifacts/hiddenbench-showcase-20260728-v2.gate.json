@@ -1,0 +1,18 @@
+{
+  "checks": {
+    "all_votes_parseable": true,
+    "fifteen_rounds_sixty_messages": true,
+    "full_profile_complete": true,
+    "hidden_prompt_isolation": true,
+    "one_to_one_private_information": true,
+    "post_vote_full_history": true,
+    "task_id_25": true
+  },
+  "configuration_fingerprint": "423dbb501fe7ba5ae6ce0bf6f8ebc1306736a0a5d9f0cea696b7b05fb3117f18",
+  "dataset_sha256": "2815AFFFCA4E470D1DFBC81E625160447DF1109CE371968181C9E1E6B90443A3",
+  "gate_version": "hiddenbench-showcase-v1",
+  "manifest_sha256": "cb73be1185f8090a9da89b22cb5a9b260b4bafa7d3525fb049335b5151abef96",
+  "run_id": "0b773c133c4d79ae",
+  "showcase_task_id": 25,
+  "structural_validation_passed": true
+}

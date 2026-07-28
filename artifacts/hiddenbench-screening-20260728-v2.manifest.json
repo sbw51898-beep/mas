@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "bytes": 7278912,
+      "path": "hiddenbench-screening-20260728-v2.jsonl",
+      "sha256": "e3064a90e7fff6313821240828bc28afeed44500be47c60eb6d195799672e4eb"
+    },
+    {
+      "bytes": 1662,
+      "path": "hiddenbench-screening-20260728-v2.md",
+      "sha256": "c819658f1cbe72126ef403c29cfbcd7904fc5f05f1f11c989cc8ae21e99e8108"
+    }
+  ],
+  "generated_at": "2026-07-28T13:05:47.252345+00:00",
+  "manifest_version": "1"
+}
