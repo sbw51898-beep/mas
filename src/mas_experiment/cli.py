@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import os
 from collections import defaultdict
 from pathlib import Path
 from statistics import mean
@@ -57,12 +58,32 @@ from mas_experiment.hiddenbench_dynamic_reporting import (
     write_dynamic_pilot_bundle,
 )
 from mas_experiment.hiddenbench_metrics import score_hiddenbench_run
+from mas_experiment.hiddenbench_ai_disclosure import (
+    DisclosureAudit,
+    audit_run_disclosure,
+)
 from mas_experiment.hiddenbench_prompts import (
     build_hidden_system_prompt,
     build_vote_user_prompt,
 )
 from mas_experiment.hiddenbench_protocol import run_hiddenbench_task
 from mas_experiment.hiddenbench_reporting import write_hiddenbench_bundle
+from mas_experiment.hiddenbench_stability_domain import (
+    StabilityStudyConfig,
+    StudyKey,
+    load_stability_config,
+)
+from mas_experiment.hiddenbench_stability_gate import (
+    build_stability_gate,
+)
+from mas_experiment.hiddenbench_stability_protocol import (
+    read_completed_study_records,
+    run_stability_study,
+)
+from mas_experiment.hiddenbench_stability_reporting import (
+    StabilityBundlePaths,
+    write_stability_bundle,
+)
 from mas_experiment.orchestrations import (
     prepare_initial_state,
     run_dynamic,
@@ -76,6 +97,7 @@ from mas_experiment.providers import (
     DeterministicProvider,
     OpenAICompatibleSettings,
     ScriptedPromptProvider,
+    StabilityOfflineProvider,
 )
 from mas_experiment.reporting import (
     build_pilot_report,
@@ -111,10 +133,22 @@ class HiddenBenchCounts(NamedTuple):
     logical_slots: int
 
 
+class StabilityCounts(NamedTuple):
+    records: int
+    logical_slots: int
+    formal_api_requests: int
+    audit_api_requests: int
+    repair_requests: int
+    selector_llm_calls: int
+
+
 HIDDENBENCH_DATASET = Path("data/hiddenbench/benchmark.json")
 HIDDENBENCH_CONFIG = Path("configs/hiddenbench-screening.json")
 HIDDENBENCH_DYNAMIC_CONFIG = Path(
     "configs/hiddenbench-dynamic-pilot.json"
+)
+HIDDENBENCH_STABILITY_CONFIG = Path(
+    "configs/hiddenbench-ai-disclosure-stability.json"
 )
 
 
@@ -859,6 +893,249 @@ async def _run_hiddenbench_dynamic_pilot(
     )
 
 
+def _stability_provider_factory(
+    *,
+    offline: bool,
+    settings: DeepSeekSettings | None,
+) -> Any:
+    if offline:
+        return StabilityOfflineProvider()
+    if settings is None:
+        raise RuntimeError("DeepSeek settings were not initialized")
+    return MAFPromptProvider(settings)
+
+
+def _read_disclosure_audits(
+    path: Path,
+) -> tuple[DisclosureAudit, ...]:
+    if not path.exists():
+        return ()
+    audits = tuple(
+        DisclosureAudit.model_validate_json(line)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    )
+    keys = [audit.study_key.value for audit in audits]
+    if len(set(keys)) != len(keys):
+        raise ValueError("duplicate disclosure audit keys")
+    return audits
+
+
+def _atomic_write_disclosure_audits(
+    path: Path,
+    audits: tuple[DisclosureAudit, ...],
+    order: dict[str, int],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    ordered = sorted(
+        audits,
+        key=lambda item: order[item.study_key.value],
+    )
+    with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+        for audit in ordered:
+            stream.write(audit.model_dump_json())
+            stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+async def _audit_stability_records(
+    *,
+    records: tuple[Any, ...],
+    config: StabilityStudyConfig,
+    audit_path: Path,
+    offline: bool,
+    settings: DeepSeekSettings | None,
+    resume: bool,
+) -> tuple[DisclosureAudit, ...]:
+    existing = (
+        _read_disclosure_audits(audit_path)
+        if resume
+        else ()
+    )
+    order = {
+        record.key.value: index
+        for index, record in enumerate(records)
+    }
+    by_key = {
+        audit.study_key.value: audit for audit in existing
+    }
+    unknown = set(by_key) - set(order)
+    if unknown:
+        raise ValueError(
+            f"audit file contains unknown keys: {sorted(unknown)}"
+        )
+    semaphore = asyncio.Semaphore(config.judge_workers)
+    write_lock = asyncio.Lock()
+
+    async def audit_one(record: Any) -> None:
+        if record.key.value in by_key:
+            return
+        async with semaphore:
+            audit = await audit_run_disclosure(
+                record.run,
+                provider=_stability_provider_factory(
+                    offline=offline,
+                    settings=settings,
+                ),
+                study_key=record.key,
+                judge_model=(
+                    "stability-offline-v1"
+                    if offline
+                    else config.judge_model
+                ),
+                judge_prompt_version=config.judge_prompt_version,
+                seed=record.pair_seed
+                + (1 if record.key.condition == "dynamic" else 0),
+            )
+        async with write_lock:
+            by_key[record.key.value] = audit
+            _atomic_write_disclosure_audits(
+                audit_path,
+                tuple(by_key.values()),
+                order,
+            )
+
+    await asyncio.gather(*(audit_one(record) for record in records))
+    return tuple(
+        by_key[record.key.value] for record in records
+    )
+
+
+async def _run_hiddenbench_stability(
+    *,
+    config_path: Path,
+    output: Path,
+    offline: bool,
+    resume: bool,
+    skip_ai_judge: bool,
+    smoke: bool,
+    experiment_workers: int | None,
+    judge_workers: int | None,
+) -> tuple[StabilityCounts, StabilityBundlePaths | None]:
+    config = load_stability_config(config_path)
+    updates: dict[str, int] = {}
+    if experiment_workers is not None:
+        updates["experiment_workers"] = experiment_workers
+    if judge_workers is not None:
+        updates["judge_workers"] = judge_workers
+    if updates:
+        config = StabilityStudyConfig.model_validate(
+            {**config.model_dump(mode="json"), **updates}
+        )
+
+    all_tasks = load_hiddenbench_tasks(
+        HIDDENBENCH_DATASET,
+        expected_sha256=config.dataset_sha256,
+    )
+    tasks = tuple(
+        task for task in all_tasks if task.id in config.task_ids
+    )
+    settings = None if offline else DeepSeekSettings.from_env()
+    requested_pairs = (
+        ((config.task_ids[0], 0),) if smoke else None
+    )
+    await run_stability_study(
+        tasks=tasks,
+        config=config,
+        provider_factory=lambda: _stability_provider_factory(
+            offline=offline,
+            settings=settings,
+        ),
+        output=output,
+        resume=resume,
+        requested_pairs=requested_pairs,
+    )
+    records = read_completed_study_records(output)
+    if smoke:
+        allowed = {
+            StudyKey(
+                task_id=config.task_ids[0],
+                condition=condition,
+                repetition=0,
+            ).value
+            for condition in config.conditions
+        }
+        records = tuple(
+            record
+            for record in records
+            if record.key.value in allowed
+        )
+    if skip_ai_judge:
+        counts = StabilityCounts(
+            records=len(records),
+            logical_slots=len(records) * 72,
+            formal_api_requests=sum(
+                record.run.metrics.api_requests for record in records
+            ),
+            audit_api_requests=0,
+            repair_requests=sum(
+                record.run.metrics.repair_requests for record in records
+            ),
+            selector_llm_calls=0,
+        )
+        return counts, None
+
+    audit_path = output.with_suffix(".ai-disclosure.jsonl")
+    audits = await _audit_stability_records(
+        records=records,
+        config=config,
+        audit_path=audit_path,
+        offline=offline,
+        settings=settings,
+        resume=resume,
+    )
+    expected_keys = (
+        tuple(record.key for record in records)
+        if smoke
+        else None
+    )
+    gate = build_stability_gate(
+        config,
+        records,
+        audits,
+        dataset_path=HIDDENBENCH_DATASET,
+        expected_keys=expected_keys,
+    )
+    paths = write_stability_bundle(
+        config=config,
+        records=records,
+        audits=audits,
+        gate=gate,
+        output=output,
+    )
+    counts = StabilityCounts(
+        records=len(records),
+        logical_slots=len(records) * 72,
+        formal_api_requests=sum(
+            record.run.metrics.api_requests for record in records
+        ),
+        audit_api_requests=sum(
+            int(audit.provider_metadata.get("api_requests", 0))
+            for audit in audits
+        ),
+        repair_requests=(
+            sum(
+                record.run.metrics.repair_requests
+                for record in records
+            )
+            + sum(
+                int(
+                    audit.provider_metadata.get(
+                        "repair_requests",
+                        0,
+                    )
+                )
+                for audit in audits
+            )
+        ),
+        selector_llm_calls=0,
+    )
+    return counts, paths
+
+
 async def _run_experiments(
     *,
     provider_name: str,
@@ -1235,6 +1512,94 @@ def hiddenbench_dynamic_pilot_command(
         "selector LLM calls=0; "
         f"trace={paths.trace}; report={paths.report}; "
         f"gate={paths.gate}; manifest={paths.manifest}"
+    )
+
+
+@app.command("hiddenbench-stability")
+def hiddenbench_stability_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination stability-study JSONL file."),
+    ] = Path("artifacts/hiddenbench-stability-20260729.jsonl"),
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked stability-study configuration."),
+    ] = HIDDENBENCH_STABILITY_CONFIG,
+    offline: Annotated[
+        bool,
+        typer.Option(
+            "--offline",
+            help="Use deterministic zero-cost smoke providers.",
+        ),
+    ] = False,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume/--no-resume",
+            help="Resume complete run pairs and completed AI audits.",
+        ),
+    ] = True,
+    experiment_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent task/repetition pair workers.",
+        ),
+    ] = None,
+    judge_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent disclosure-audit workers.",
+        ),
+    ] = None,
+    skip_ai_judge: Annotated[
+        bool,
+        typer.Option(
+            help="Run discussions only; do not produce a formal bundle.",
+        ),
+    ] = False,
+    smoke: Annotated[
+        bool,
+        typer.Option(
+            help="Run only task 1 repetition 0 for pipeline validation.",
+        ),
+    ] = False,
+) -> None:
+    """Run the study with --resume, --experiment-workers,
+    --judge-workers, and optional --skip-ai-judge controls.
+    """
+    counts, paths = asyncio.run(
+        _run_hiddenbench_stability(
+            config_path=config,
+            output=output,
+            offline=offline,
+            resume=resume,
+            skip_ai_judge=skip_ai_judge,
+            smoke=smoke,
+            experiment_workers=experiment_workers,
+            judge_workers=judge_workers,
+        )
+    )
+    if paths is None:
+        typer.echo(
+            f"Completed discussions only -> {output}; "
+            f"records={counts.records}; AI judge skipped; "
+            "no formal gate or bundle was produced."
+        )
+        return
+    typer.echo(
+        f"HiddenBench stability gate passed -> {paths.runs}; "
+        f"records={counts.records}; "
+        f"logical response slots={counts.logical_slots}; "
+        f"formal API requests={counts.formal_api_requests}; "
+        f"audit API requests={counts.audit_api_requests}; "
+        f"repair requests={counts.repair_requests}; "
+        f"selector LLM calls={counts.selector_llm_calls}; "
+        f"summary={paths.summary}; report={paths.report}; "
+        f"manifest={paths.manifest}"
     )
 
 

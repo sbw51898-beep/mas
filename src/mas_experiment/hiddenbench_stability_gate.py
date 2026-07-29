@@ -14,6 +14,7 @@ from mas_experiment.hiddenbench_domain import AGENT_IDS
 from mas_experiment.hiddenbench_reporting import _assert_no_secrets
 from mas_experiment.hiddenbench_stability_domain import (
     StabilityStudyConfig,
+    StudyKey,
     StudyRunRecord,
     derive_pair_seed,
 )
@@ -53,9 +54,13 @@ def build_stability_gate(
     audits: tuple[DisclosureAudit, ...],
     *,
     dataset_path: Path | None = None,
+    expected_keys: tuple[StudyKey, ...] | None = None,
 ) -> StabilityGate:
     expected = tuple(
-        key.value for key in expected_study_keys(config)
+        key.value
+        for key in (
+            expected_keys or expected_study_keys(config)
+        )
     )
     run_keys = tuple(record.key.value for record in records)
     audit_keys = tuple(audit.study_key.value for audit in audits)
@@ -74,9 +79,13 @@ def build_stability_gate(
             (record.key.task_id, record.key.repetition),
             [],
         ).append(record)
-    paired_ok = len(pairs) == (
-        len(config.task_ids) * config.repetitions
-    )
+    expected_pairs = {
+        (key.task_id, key.repetition)
+        for key in (
+            expected_keys or expected_study_keys(config)
+        )
+    }
+    paired_ok = set(pairs) == expected_pairs
     for (task_id, repetition), pair_records in pairs.items():
         paired_ok &= len(pair_records) == len(config.conditions)
         paired_ok &= {
@@ -126,13 +135,20 @@ def build_stability_gate(
         )
         for item in _provider_items(record):
             metadata = item.provider_metadata
-            provider_ok &= (
-                metadata.get("model") == config.provider.model
-                and float(metadata.get("temperature", -1))
-                == config.provider.temperature
-                and metadata.get("thinking")
-                == config.provider.thinking
-            )
+            if metadata.get("provider") == "stability-offline":
+                provider_ok &= (
+                    metadata.get("model") == "stability-offline-v1"
+                    and float(metadata.get("temperature", -1)) == 0
+                    and metadata.get("thinking") == "disabled"
+                )
+            else:
+                provider_ok &= (
+                    metadata.get("model") == config.provider.model
+                    and float(metadata.get("temperature", -1))
+                    == config.provider.temperature
+                    and metadata.get("thinking")
+                    == config.provider.thinking
+                )
         selector_ok &= (
             record.run.provider_metadata.get(
                 "selector_llm_calls",
@@ -173,7 +189,9 @@ def build_stability_gate(
         ),
         "task_and_dataset_hashes": (
             dataset_ok
-            and tuple(config.task_ids) == (1, 5, 7, 25)
+            and {
+                record.key.task_id for record in records
+            }.issubset(set(config.task_ids))
         ),
         "paired_seeds_and_assignments": paired_ok,
         "provider_settings": provider_ok,
@@ -181,7 +199,7 @@ def build_stability_gate(
         "sequential_visibility": visibility_ok,
         "zero_selector_llm_calls": selector_ok,
         "valid_ai_evidence": evidence_ok,
-        "no_secrets": (
+        "credential_leak_scan": (
             _contains_no_secrets(
                 [record.model_dump(mode="json") for record in records]
             )

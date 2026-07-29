@@ -273,3 +273,71 @@ mas-experiment hiddenbench-dynamic-pilot `
 命令在创建模型 provider 前校验冻结 JSONL、报告、配置和数据集哈希。
 输出包括动态运行 JSONL、180 条选择事件 trace、配对报告、协议 gate
 和覆盖全部文件的 SHA-256 manifest。
+
+## 12. AI披露审计与10次重复稳定性实验
+
+正式稳定性实验由
+`configs/hiddenbench-ai-disclosure-stability.json` 冻结，任务为
+ID 1、5、7、25，条件为固定轮转与动态发言，每个题目—条件重复10次。
+总计80次运行、4,800条公开发言。每个固定/动态配对共享同一任务、种子、
+私有信息分配、模型设置和60次发言预算；每名 Agent 都恰好发言15次。
+
+### 离线冒烟
+
+```powershell
+mas-experiment hiddenbench-stability `
+  --offline `
+  --smoke `
+  --output artifacts/hiddenbench-stability-offline-smoke.jsonl
+```
+
+冒烟模式只运行 ID 1 的第0次重复，用于检查配对、审计、gate、CSV、
+报告和manifest。它不产生模型效果证据。
+
+### 真实 DeepSeek
+
+```powershell
+mas-experiment hiddenbench-stability `
+  --config configs/hiddenbench-ai-disclosure-stability.json `
+  --output artifacts/hiddenbench-stability-20260729.jsonl `
+  --experiment-workers 8 `
+  --judge-workers 16
+```
+
+默认启用 `--resume`。每个固定/动态配对只有在两次运行都通过预算和分配
+检查后才原子写入；AI审计也按运行键保存检查点。中断后重复同一命令，
+不会重跑已完成配对或已完成审计。若只需生成对话，可使用
+`--skip-ai-judge`，但该模式不会生成正式gate和完整结果包。
+
+### AI披露法则
+
+AI逐条判断四条私有事实是否由事实所有者在公共讨论中披露。忠实释义和
+保留决策关键部分的表述可以计入；极性反转、实质弱化，以及其他 Agent
+的猜测或转述不计入所有者披露。每个“已披露”标签必须同时提供：
+
+- 所有者发言的消息ID；
+- 该消息中的原文连续片段；
+- 简短理由和置信度。
+
+程序会验证消息ID、说话者和原文片段，再按披露事实数除以4计算百分比。
+AI不会自行决定分母，也不能修改对话和投票。首次输出不合规时只允许
+一次格式修复，并单独记录修复调用。
+
+原有 `lexical-semantic-v2` 规则结果不被AI覆盖。两者逐事实比较，分歧
+写入 `.disagreements.csv`，供人工复核。报告同时给出均值、标准差、
+10次中的多数正确/一致/错误共识次数、最终答案分布、首次及稳定共识
+时间、共识翻转和稳定后重复确认次数。
+
+### 结果文件
+
+- `.jsonl`：按题目、重复次数、机制排序的运行记录；
+- `.trace.jsonl`：4,800条公开消息及动态选择事件；
+- `.ai-disclosure.jsonl`：80份有证据的AI披露审计；
+- `.disagreements.csv`：AI与规则法逐事实分歧；
+- `.summary.csv`：题目—条件稳定性汇总；
+- `.md`：面向老师的可读分析；
+- `.gate.json`：80键、预算、分配、模型、证据与泄密检查；
+- `.manifest.json`：全部交付文件的字节数和SHA-256。
+
+该四题重复实验仍属于代表性、描述性分析，不等于复现论文65题总体
+结果，也不能据此宣称某一种发言机制普遍更优。
