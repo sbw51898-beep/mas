@@ -267,8 +267,38 @@ def _add_revision(document: DocumentType) -> None:
         "HiddenBench 官方实现不是 Microsoft Agent Framework、AutoGen "
         "或其他现成群聊框架，而是论文作者自己编写的 Python 模拟器。"
         "公开仓库的核心讨论编排位于 src/hiddenbench/simulator.py，模型访问"
-        "通过自定义 ModelClient 抽象完成。论文评测 15 个模型；本报告选取"
-        "官方公开结果包中的 GPT-4.1，作为四道题的逐题外部参照。"
+        "通过自定义 ModelClient 抽象完成。论文正文称评测 15 个模型；"
+        "作者当前公开的 Figure 3 校验表实际列出 17 个模型配置，完整名单如下。"
+    )
+    _add_table(
+        document,
+        ["模型家族", "作者公开结果中的模型配置"],
+        [
+            [
+                "OpenAI GPT（8）",
+                "GPT-4o；GPT-4.1-Nano；GPT-4.1-Mini；GPT-4.1；"
+                "GPT-5-Nano-Minimal；GPT-5-Mini-Minimal；"
+                "GPT-5-Minimal；GPT-5-Medium",
+            ],
+            [
+                "Google Gemini（3）",
+                "Gemini-2.5-Flash-Lite；Gemini-2.5-Flash；Gemini-2.5-Pro",
+            ],
+            [
+                "Alibaba Qwen（4）",
+                "Qwen3-8B；Qwen3-14B；Qwen3-32B；Qwen3-235B-A22B",
+            ],
+            [
+                "Meta Llama（2）",
+                "Llama-4-Scout；Llama-4-Maverick（结果文件名 llama-4）",
+            ],
+        ],
+        [3.4, 12.6],
+    )
+    document.add_paragraph(
+        "因此，本报告不把“15”误写成一个不完整名单，而是保留论文正文口径，"
+        "同时披露当前官方结果包的 17 项实际配置。本实验只选取其中 GPT-4.1，"
+        "作为四道题的逐题外部参照。"
     )
     document.add_paragraph(
         "原论文公开了源代码、65 题数据、Prompt、评测脚本和结果包。"

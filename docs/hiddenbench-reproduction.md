@@ -373,3 +373,23 @@ python reports/build_hiddenbench_official_comparison.py
 使用 GPT-4.1，而本实验使用 DeepSeek V4 Flash；实现分别是作者自定义
 Python 模拟器与 Microsoft Agent Framework。因此只比较同题现象，
 不把差值单独归因于框架。
+
+### 原论文模型清单的口径说明
+
+论文正文称评测 15 个模型，但作者当前公开的 Figure 3 校验表列出 17 个
+模型配置：
+
+- OpenAI GPT（8）：GPT-4o、GPT-4.1-Nano、GPT-4.1-Mini、GPT-4.1、
+  GPT-5-Nano-Minimal、GPT-5-Mini-Minimal、GPT-5-Minimal、
+  GPT-5-Medium；
+- Google Gemini（3）：Gemini-2.5-Flash-Lite、Gemini-2.5-Flash、
+  Gemini-2.5-Pro；
+- Alibaba Qwen（4）：Qwen3-8B、Qwen3-14B、Qwen3-32B、
+  Qwen3-235B-A22B；
+- Meta Llama（2）：Llama-4-Scout、Llama-4-Maverick（结果文件名
+  `llama-4`）。
+
+该名单取自官方仓库提交
+`3be6ca16973e4fb751ffc0dfb7eb11f2d28335d1` 的
+`docs/paper_result_validation.md`。本文保留“正文 15 个”的原始口径，
+同时披露公开结果包实际存在的 17 项配置，避免两种版本口径混淆。
