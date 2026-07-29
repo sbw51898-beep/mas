@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "deterministic_trace": true,
+    "equal_speech_budgets": true,
+    "frozen_assignments": true,
+    "logical_slots": true,
+    "provider_settings": true,
+    "selector_llm_calls": true,
+    "sequential_visibility": true,
+    "task_ids": true
+  },
+  "passed": true,
+  "provider_name": "deepseek",
+  "task_ids": [
+    1,
+    5,
+    7
+  ]
+}

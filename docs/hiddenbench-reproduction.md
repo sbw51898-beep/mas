@@ -254,7 +254,7 @@ Markdown 是面向老师的可读档案；manifest 保存 JSONL 和 Markdown 的
 离线协议检查：
 
 ```powershell
-python -m mas_experiment.cli hiddenbench-dynamic-pilot `
+mas-experiment hiddenbench-dynamic-pilot `
   --provider scripted `
   --script tests/fixtures/hiddenbench_script.json `
   --skip-connectivity `
@@ -264,7 +264,7 @@ python -m mas_experiment.cli hiddenbench-dynamic-pilot `
 真实 DeepSeek 试验：
 
 ```powershell
-python -m mas_experiment.cli hiddenbench-dynamic-pilot `
+mas-experiment hiddenbench-dynamic-pilot `
   --provider deepseek `
   --skip-connectivity `
   --output artifacts/hiddenbench-dynamic-pilot-20260729.jsonl

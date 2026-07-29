@@ -170,7 +170,7 @@ mas-experiment hiddenbench-showcase `
 动态顺序：
 
 ```powershell
-python -m mas_experiment.cli hiddenbench-dynamic-pilot `
+mas-experiment hiddenbench-dynamic-pilot `
   --provider deepseek `
   --skip-connectivity `
   --output artifacts/hiddenbench-dynamic-pilot-20260729.jsonl
