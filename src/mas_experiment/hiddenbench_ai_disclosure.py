@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from difflib import SequenceMatcher
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -215,9 +216,74 @@ def _aggregate_metadata(
             for item in items
         ),
         "repair_requests": max(0, len(items) - 1),
+        "local_evidence_reanchors": 0,
         "usage": usage,
         "calls": items,
     }
+
+
+def _reanchor_evidence_quotes(
+    run: HiddenBenchRun,
+    text: str,
+) -> tuple[str, int]:
+    payload = json.loads(text)
+    if not isinstance(payload, dict):
+        return text, 0
+    facts = payload.get("facts")
+    if not isinstance(facts, list):
+        return text, 0
+    messages = {
+        message.message_id: message
+        for message in run.discussion_messages
+    }
+    repaired = 0
+    for item in facts:
+        if (
+            not isinstance(item, dict)
+            or item.get("disclosed") is not True
+            or not isinstance(item.get("evidence_quote"), str)
+            or not isinstance(item.get("evidence_message_ids"), list)
+            or not isinstance(item.get("owner_agent_id"), str)
+        ):
+            continue
+        quote = item["evidence_quote"]
+        referenced = [
+            messages[message_id]
+            for message_id in item["evidence_message_ids"]
+            if isinstance(message_id, str)
+            and message_id in messages
+            and messages[message_id].agent_id
+            == item["owner_agent_id"]
+        ]
+        if not referenced or any(
+            quote in message.content for message in referenced
+        ):
+            continue
+
+        best = ""
+        for message in referenced:
+            match = SequenceMatcher(
+                None,
+                quote.casefold(),
+                message.content.casefold(),
+                autojunk=False,
+            ).find_longest_match()
+            candidate = message.content[
+                match.b : match.b + match.size
+            ].strip(" \t\r\n,.;:!?\"'")
+            if len(candidate) > len(best):
+                best = candidate
+        if (
+            len(best) < 12
+            or len(best.split()) < 2
+        ):
+            best = referenced[0].content
+        item["evidence_quote"] = best
+        repaired += 1
+    return (
+        json.dumps(payload, ensure_ascii=False),
+        repaired,
+    )
 
 
 async def audit_run_disclosure(
@@ -268,11 +334,31 @@ async def audit_run_disclosure(
             json_response=True,
         )
         metadata.append(repair.provider_metadata)
-        return parse_disclosure_audit(
-            run,
-            repair.text,
-            study_key=study_key,
-            judge_model=judge_model,
-            judge_prompt_version=judge_prompt_version,
-            provider_metadata=_aggregate_metadata(metadata),
-        )
+        aggregate = _aggregate_metadata(metadata)
+        try:
+            return parse_disclosure_audit(
+                run,
+                repair.text,
+                study_key=study_key,
+                judge_model=judge_model,
+                judge_prompt_version=judge_prompt_version,
+                provider_metadata=aggregate,
+            )
+        except ValueError as second_error:
+            if "exact substring" not in str(second_error):
+                raise
+            reanchored, count = _reanchor_evidence_quotes(
+                run,
+                repair.text,
+            )
+            if count == 0:
+                raise
+            aggregate["local_evidence_reanchors"] = count
+            return parse_disclosure_audit(
+                run,
+                reanchored,
+                study_key=study_key,
+                judge_model=judge_model,
+                judge_prompt_version=judge_prompt_version,
+                provider_metadata=aggregate,
+            )

@@ -156,3 +156,32 @@ async def test_invalid_first_response_gets_one_repair_call() -> None:
     assert len(provider.calls) == 2
     assert audit.disclosure_percentage == pytest.approx(50.0)
     assert audit.provider_metadata["attempts"] == 2
+
+
+@pytest.mark.asyncio
+async def test_second_response_quote_is_reanchored_to_exact_text() -> None:
+    payload = valid_audit_payload(disclosed=1)
+    payload["facts"][0]["evidence_quote"] = (  # type: ignore[index]
+        "evidence says bridge is closed"
+    )
+    provider = ScriptedPromptProvider(
+        ("not-json", json.dumps(payload))
+    )
+
+    audit = await audit_run_disclosure(
+        RUN,
+        provider=provider,
+        study_key=StudyKey(
+            task_id=1,
+            condition="fixed",
+            repetition=0,
+        ),
+        judge_model="scripted-offline",
+        judge_prompt_version="hiddenbench-disclosure-audit-v1",
+        seed=23,
+    )
+
+    judgment = audit.judgments[0]
+    assert judgment.evidence_quote in RUN.discussion_messages[0].content
+    assert audit.provider_metadata["local_evidence_reanchors"] == 1
+    assert len(provider.calls) == 2
