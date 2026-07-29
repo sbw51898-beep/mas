@@ -5,6 +5,8 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict
+
 from mas_experiment.hiddenbench_data import HiddenBenchTask
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS,
@@ -124,6 +126,17 @@ _CONCEPT_STEMS = {
     "toxin",
     "unsafe",
 }
+
+
+class RuleDisclosureEvidence(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    fact: str
+    owner_agent_id: str
+    disclosed: bool
+    evidence_message_ids: tuple[str, ...]
+    cross_agent_use_message_ids: tuple[str, ...]
+    rule_version: str
 
 
 def _light_stem(term: str) -> str:
@@ -480,8 +493,30 @@ def _information_flow(
     dict[str, HiddenBenchMessage],
     dict[str, tuple[HiddenBenchMessage, ...]],
 ]:
+    evidence = _rule_disclosure_evidence(assignment, messages)
+    messages_by_id = {
+        message.message_id: message for message in messages
+    }
     disclosed: dict[str, HiddenBenchMessage] = {}
     cross_uses: dict[str, tuple[HiddenBenchMessage, ...]] = {}
+    for fact, item in evidence.items():
+        if item.evidence_message_ids:
+            disclosed[fact] = messages_by_id[
+                item.evidence_message_ids[0]
+            ]
+        if item.cross_agent_use_message_ids:
+            cross_uses[fact] = tuple(
+                messages_by_id[message_id]
+                for message_id in item.cross_agent_use_message_ids
+            )
+    return disclosed, cross_uses
+
+
+def _rule_disclosure_evidence(
+    assignment: HiddenBenchAssignment,
+    messages: tuple[HiddenBenchMessage, ...],
+) -> dict[str, RuleDisclosureEvidence]:
+    evidence: dict[str, RuleDisclosureEvidence] = {}
     for owner, fact in assignment.private_information.items():
         owner_disclosure = next(
             (
@@ -492,19 +527,41 @@ def _information_flow(
             ),
             None,
         )
-        if owner_disclosure is None:
-            continue
-        disclosed[fact] = owner_disclosure
-        uses = tuple(
-            message
-            for message in messages
-            if message.turn_index > owner_disclosure.turn_index
-            and message.agent_id != owner
-            and lexical_fact_match(fact, message.content)
+        uses = (
+            tuple(
+                message
+                for message in messages
+                if message.turn_index > owner_disclosure.turn_index
+                and message.agent_id != owner
+                and lexical_fact_match(fact, message.content)
+            )
+            if owner_disclosure is not None
+            else ()
         )
-        if uses:
-            cross_uses[fact] = uses
-    return disclosed, cross_uses
+        evidence[fact] = RuleDisclosureEvidence(
+            fact=fact,
+            owner_agent_id=owner,
+            disclosed=owner_disclosure is not None,
+            evidence_message_ids=(
+                (owner_disclosure.message_id,)
+                if owner_disclosure is not None
+                else ()
+            ),
+            cross_agent_use_message_ids=tuple(
+                message.message_id for message in uses
+            ),
+            rule_version=EVIDENCE_RULE_VERSION,
+        )
+    return evidence
+
+
+def rule_disclosure_evidence(
+    run: HiddenBenchRawRun,
+) -> dict[str, RuleDisclosureEvidence]:
+    return _rule_disclosure_evidence(
+        run.assignment,
+        run.discussion_messages,
+    )
 
 
 def _fm24_candidates(
