@@ -142,6 +142,31 @@ class DynamicHiddenBenchRun(BaseModel):
         return self
 
 
+class PilotGate(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    provider_name: str
+    task_ids: tuple[int, ...]
+    checks: dict[str, bool]
+    passed: bool
+
+    @model_validator(mode="after")
+    def validate_passed(self) -> PilotGate:
+        if self.passed != all(self.checks.values()):
+            raise ValueError("gate passed must equal all recorded checks")
+        return self
+
+
+class DynamicBundlePaths(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    runs: Path
+    trace: Path
+    report: Path
+    gate: Path
+    manifest: Path
+
+
 def load_dynamic_pilot_config(path: Path) -> DynamicPilotConfig:
     return DynamicPilotConfig.model_validate(
         json.loads(path.read_text(encoding="utf-8"))
