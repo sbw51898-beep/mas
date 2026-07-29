@@ -55,6 +55,9 @@ class StabilitySummaryRow(BaseModel):
     wrong_consensus_count: int
     stable_consensus_count: int
     mean_first_consensus_turn: float | None
+    mean_first_stable_consensus_turn: float | None
+    mean_consensus_flips: float
+    mean_post_stable_messages: float
     mean_repeated_confirmations: float
     ai_rule_agreement: float
     final_answer_distribution: dict[str, int]
@@ -195,6 +198,11 @@ def summarize_stability(
             for item in consensus
             if item.first_consensus_turn is not None
         ]
+        stable_turns = [
+            item.first_stable_consensus_turn
+            for item in consensus
+            if item.first_stable_consensus_turn is not None
+        ]
         ai_rates = [
             audit.disclosure_rate for audit in group_audits
         ]
@@ -229,6 +237,16 @@ def summarize_stability(
                 ),
                 mean_first_consensus_turn=(
                     mean(first_turns) if first_turns else None
+                ),
+                mean_first_stable_consensus_turn=(
+                    mean(stable_turns) if stable_turns else None
+                ),
+                mean_consensus_flips=mean(
+                    item.consensus_flips for item in consensus
+                ),
+                mean_post_stable_messages=mean(
+                    item.post_stable_message_count
+                    for item in consensus
                 ),
                 mean_repeated_confirmations=mean(
                     item.repeated_confirmation_count
@@ -304,6 +322,39 @@ def _build_report(
     disagreements = sum(
         item.requires_manual_review for item in comparisons
     )
+    by_task_condition = {
+        (row.task_id, row.condition): row for row in summaries
+    }
+    lines.extend(
+        [
+            "",
+            "## Paired fixed-minus-dynamic differences",
+            "",
+            (
+                "| Task | Majority-correct rate difference | "
+                "Wrong-consensus rate difference | "
+                "AI disclosure mean difference |"
+            ),
+            "|---:|---:|---:|---:|",
+        ]
+    )
+    paired_rows = 0
+    for task_id in config.task_ids:
+        fixed = by_task_condition.get((task_id, "fixed"))
+        dynamic = by_task_condition.get((task_id, "dynamic"))
+        if fixed is None or dynamic is None:
+            continue
+        paired_rows += 1
+        lines.append(
+            f"| {task_id} | "
+            f"{fixed.post_majority_correct_count / fixed.repetitions - dynamic.post_majority_correct_count / dynamic.repetitions:+.3f} | "
+            f"{fixed.wrong_consensus_count / fixed.repetitions - dynamic.wrong_consensus_count / dynamic.repetitions:+.3f} | "
+            f"{fixed.ai_disclosure_mean - dynamic.ai_disclosure_mean:+.3f} |"
+        )
+    if paired_rows == 0:
+        lines.append(
+            "| — | No complete paired task in this smoke bundle | — | — |"
+        )
     lines.extend(
         [
             "",

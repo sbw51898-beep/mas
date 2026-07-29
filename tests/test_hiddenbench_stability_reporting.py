@@ -16,6 +16,7 @@ from mas_experiment.hiddenbench_stability_domain import (
 from mas_experiment.hiddenbench_stability_gate import StabilityGate
 from mas_experiment.hiddenbench_stability_reporting import (
     build_fact_comparisons,
+    summarize_stability,
     write_stability_bundle,
 )
 
@@ -118,5 +119,11 @@ def test_summary_contains_stability_and_boundary_language(
     assert "10 repetitions" in report
     assert "wrong consensus" in report
     assert "AI-rule agreement" in report
+    assert "Paired fixed-minus-dynamic differences" in report
     assert "does not establish general superiority" in report
     assert paths.manifest.is_file()
+
+    summary = summarize_stability((record,), (audit,))[0]
+    assert summary.mean_first_stable_consensus_turn is not None
+    assert summary.mean_consensus_flips >= 0
+    assert summary.mean_post_stable_messages >= 0
