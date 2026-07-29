@@ -1,0 +1,9 @@
+﻿task_id,condition,repetitions,ai_disclosure_mean,ai_disclosure_std,rule_disclosure_mean,post_majority_correct_count,post_unanimous_count,wrong_consensus_count,stable_consensus_count,mean_first_consensus_turn,mean_first_stable_consensus_turn,mean_consensus_flips,mean_post_stable_messages,mean_repeated_confirmations,ai_rule_agreement,final_answer_distribution
+1,fixed,10,0.9,0.1224744871391589,0.95,10,10,0,9,11.11111111111111,11.11111111111111,0.0,40.4,39.7,0.95,"{""West City"": 10}"
+1,dynamic,10,0.85,0.16583123951776998,0.925,6,10,4,7,17.0,17.0,0.0,27.3,27.2,0.875,"{""East Town"": 3, ""North Hill"": 1, ""West City"": 6}"
+5,fixed,10,0.025,0.075,0.15,0,10,10,10,7.2,7.2,0.0,48.8,48.4,0.875,"{""Jones"": 8, ""Stevens"": 2}"
+5,dynamic,10,0.0,0.0,0.075,0,10,10,9,5.666666666666667,5.666666666666667,0.0,45.3,45.1,0.925,"{""Jones"": 9, ""Stevens"": 1}"
+7,fixed,10,0.0,0.0,0.5,2,10,8,7,18.25,12.285714285714286,0.0,30.6,27.0,0.5,"{""Cape Industries"": 3, ""Franklin Enterprises"": 5, ""Starlight Incorporated"": 2}"
+7,dynamic,10,0.0,0.0,0.875,0,9,9,6,10.666666666666666,10.666666666666666,0.2,27.2,19.4,0.125,"{""Cape Industries"": 3, ""Franklin Enterprises"": 7}"
+25,fixed,10,0.675,0.19525624189766635,0.775,8,10,2,6,10.666666666666666,11.5,0.2,26.7,22.0,0.8,"{""Station Alpha"": 1, ""Station Charlie"": 1, ""Station Delta"": 8}"
+25,dynamic,10,0.675,0.25124689052802224,0.825,8,9,1,8,12.375,12.375,0.0,34.9,33.4,0.85,"{""NO_MAJORITY"": 1, ""Station Alpha"": 1, ""Station Delta"": 8}"

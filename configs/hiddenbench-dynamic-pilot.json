@@ -1,0 +1,36 @@
+{
+  "configuration_version": "hiddenbench-dynamic-pilot-v1",
+  "pilot_task_ids": [
+    1,
+    5,
+    7
+  ],
+  "base_seed": 20260728,
+  "dataset_sha256": "2815AFFFCA4E470D1DFBC81E625160447DF1109CE371968181C9E1E6B90443A3",
+  "prompt_version": "hiddenbench-appendix-a4-v1",
+  "total_speeches": 60,
+  "speeches_per_agent": 15,
+  "selector_llm_calls": 0,
+  "selector": {
+    "disagreement": 0.3,
+    "undisclosed": 0.3,
+    "related_discussion": 0.15,
+    "response_due": 0.15,
+    "waiting": 0.1
+  },
+  "evidence_rule_version": "lexical-semantic-v2",
+  "provider": {
+    "model": "deepseek-v4-flash",
+    "temperature": 0,
+    "thinking": "disabled"
+  },
+  "frozen_baseline": {
+    "git_commit": "2b9b0a9",
+    "jsonl": "artifacts/hiddenbench-screening-20260728-v2.jsonl",
+    "jsonl_sha256": "e3064a90e7fff6313821240828bc28afeed44500be47c60eb6d195799672e4eb",
+    "report": "artifacts/hiddenbench-screening-20260728-v2.md",
+    "report_sha256": "c819658f1cbe72126ef403c29cfbcd7904fc5f05f1f11c989cc8ae21e99e8108",
+    "config": "configs/hiddenbench-screening.json",
+    "config_sha256": "f1769b2b92f117aa56699747833a091727e7db050d75b1738ddba05f168424ce"
+  }
+}

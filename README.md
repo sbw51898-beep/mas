@@ -163,3 +163,64 @@ mas-experiment hiddenbench-showcase `
 这些指定的 v2 附件虽然位于通常被忽略的 `artifacts/` 目录，但已作为
 本次正式复现材料明确纳入版本控制。附件包含原始 Prompt、可见消息、
 60 条讨论、三种条件投票、指标和 SHA-256 manifest；不包含 API Key。
+
+## HiddenBench 预算匹配动态发言试验
+
+固定轮转基线冻结后，可先在错误共识案例 ID 1、5、7 上运行内容感知
+动态顺序：
+
+```powershell
+mas-experiment hiddenbench-dynamic-pilot `
+  --provider deepseek `
+  --skip-connectivity `
+  --output artifacts/hiddenbench-dynamic-pilot-20260729.jsonl
+```
+
+两种条件均为每个 Agent 15 次、每题总计 60 次公开发言。动态选择器只
+计算闭式分数，不调用 LLM，也不读取标准答案。输出额外包含逐次选择分数
+trace、协议 gate、配对报告和 SHA-256 manifest。三题仅用于机制与协议
+审计，不能据此作显著性或优越性结论。
+
+## HiddenBench AI披露与稳定性正式实验
+
+老师要求的重复实验锁定 ID 1、5、7、25，并分别比较固定轮转和动态
+发言。每个“题目×机制”重复10次，共80次运行；每次仍为60次公开发言、
+每名 Agent 15次。两种机制在同一题同一次重复中使用相同种子、相同私有
+信息分配、相同模型参数和相同发言预算。选择器不调用 LLM；Token 用量只
+单独报告，并不宣称已经做到 Token 等额。
+
+先运行一组零成本流程验收：
+
+```powershell
+mas-experiment hiddenbench-stability `
+  --offline `
+  --smoke `
+  --output artifacts/hiddenbench-stability-offline-smoke.jsonl
+```
+
+真实 DeepSeek 正式运行：
+
+```powershell
+mas-experiment hiddenbench-stability `
+  --output artifacts/hiddenbench-stability-20260729.jsonl `
+  --experiment-workers 8 `
+  --judge-workers 16
+```
+
+中断后使用相同命令即可续跑；默认启用 `--resume`，只跳过已经完整写入的
+固定/动态配对和已经完成的 AI 审计。`--skip-ai-judge` 只生成对话记录，
+不会生成可称为正式结果的 gate 和报告。
+
+AI审计对每条私有事实分别判断是否由其所有者公开，并必须返回消息ID和
+原文片段。最终披露百分比由程序按“披露事实数÷4”计算，不直接采用模型
+自报的百分比。原有 `lexical-semantic-v2` 结果继续保留，二者不一致的
+事实进入人工复核CSV。输出还包括80次运行、公开对话/选择器trace、
+AI审计、稳定性summary、Markdown报告、gate和SHA-256 manifest。
+
+正式结果和老师审阅材料：
+
+- [四题十次重复分析](reports/HiddenBench_四题十次重复分析_2026-07-30.md)
+- [官方 GPT-4.1 四题逐题对照](reports/HiddenBench_官方GPT4.1四题对照_2026-07-30.md)
+- [2026-07-30 修订版 Word 报告](reports/给彭老师的HiddenBench_MAF复现实验最终报告_2026-07-30_修订版.docx)
+- `artifacts/hiddenbench-stability-20260729.*`：80 个 run、4,800 条
+  发言、AI 披露审计、分歧清单、汇总、闸门和 SHA-256 manifest。

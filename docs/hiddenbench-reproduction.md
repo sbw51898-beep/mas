@@ -235,3 +235,161 @@ Markdown 是面向老师的可读档案；manifest 保存 JSONL 和 Markdown 的
 - 不覆盖既有运行，除非明确传入 `--overwrite`。
 
 内容感知动态发言只在固定轮转基线完成并冻结以后另做扩展设计。
+
+## 11. 预算匹配的动态发言扩展
+
+动态扩展使用
+`configs/hiddenbench-dynamic-pilot.json` 锁定冻结基线的文件哈希、
+任务 ID、模型参数、五因子权重和发言额度。试验先运行 ID 1、5、7。
+
+公平性约束如下：
+
+- 固定轮转与动态顺序均为每名 Agent 15 次发言；
+- 每题均为 60 次公开发言，不提前终止；
+- 选择器 LLM 调用数为 0；
+- 选择器只改变 60 个槽位的归属顺序；
+- Token 数只报告、不宣称已经控制；
+- 动态 `round_index` 只是每四个槽位组成的报告块。
+
+离线协议检查：
+
+```powershell
+mas-experiment hiddenbench-dynamic-pilot `
+  --provider scripted `
+  --script tests/fixtures/hiddenbench_script.json `
+  --skip-connectivity `
+  --output artifacts/hiddenbench-dynamic-pilot-offline.jsonl
+```
+
+真实 DeepSeek 试验：
+
+```powershell
+mas-experiment hiddenbench-dynamic-pilot `
+  --provider deepseek `
+  --skip-connectivity `
+  --output artifacts/hiddenbench-dynamic-pilot-20260729.jsonl
+```
+
+命令在创建模型 provider 前校验冻结 JSONL、报告、配置和数据集哈希。
+输出包括动态运行 JSONL、180 条选择事件 trace、配对报告、协议 gate
+和覆盖全部文件的 SHA-256 manifest。
+
+## 12. AI披露审计与10次重复稳定性实验
+
+正式稳定性实验由
+`configs/hiddenbench-ai-disclosure-stability.json` 冻结，任务为
+ID 1、5、7、25，条件为固定轮转与动态发言，每个题目—条件重复10次。
+总计80次运行、4,800条公开发言。每个固定/动态配对共享同一任务、种子、
+私有信息分配、模型设置和60次发言预算；每名 Agent 都恰好发言15次。
+
+### 离线冒烟
+
+```powershell
+mas-experiment hiddenbench-stability `
+  --offline `
+  --smoke `
+  --output artifacts/hiddenbench-stability-offline-smoke.jsonl
+```
+
+冒烟模式只运行 ID 1 的第0次重复，用于检查配对、审计、gate、CSV、
+报告和manifest。它不产生模型效果证据。
+
+### 真实 DeepSeek
+
+```powershell
+mas-experiment hiddenbench-stability `
+  --config configs/hiddenbench-ai-disclosure-stability.json `
+  --output artifacts/hiddenbench-stability-20260729.jsonl `
+  --experiment-workers 8 `
+  --judge-workers 16
+```
+
+默认启用 `--resume`。每个固定/动态配对只有在两次运行都通过预算和分配
+检查后才原子写入；AI审计也按运行键保存检查点。中断后重复同一命令，
+不会重跑已完成配对或已完成审计。若只需生成对话，可使用
+`--skip-ai-judge`，但该模式不会生成正式gate和完整结果包。
+
+### AI披露法则
+
+AI逐条判断四条私有事实是否由事实所有者在公共讨论中披露。忠实释义和
+保留决策关键部分的表述可以计入；极性反转、实质弱化，以及其他 Agent
+的猜测或转述不计入所有者披露。每个“已披露”标签必须同时提供：
+
+- 所有者发言的消息ID；
+- 该消息中的原文连续片段；
+- 简短理由和置信度。
+
+程序会验证消息ID、说话者和原文片段，再按披露事实数除以4计算百分比。
+AI不会自行决定分母，也不能修改对话和投票。首次输出不合规时只允许
+一次格式修复，并单独记录修复调用。
+
+原有 `lexical-semantic-v2` 规则结果不被AI覆盖。两者逐事实比较，分歧
+写入 `.disagreements.csv`，供人工复核。报告同时给出均值、标准差、
+10次中的多数正确/一致/错误共识次数、最终答案分布、首次及稳定共识
+时间、共识翻转和稳定后重复确认次数。
+
+### 结果文件
+
+- `.jsonl`：按题目、重复次数、机制排序的运行记录；
+- `.trace.jsonl`：4,800条公开消息及动态选择事件；
+- `.ai-disclosure.jsonl`：80份有证据的AI披露审计；
+- `.disagreements.csv`：AI与规则法逐事实分歧；
+- `.summary.csv`：题目—条件稳定性汇总；
+- `.md`：面向老师的可读分析；
+- `.gate.json`：80键、预算、分配、模型、证据与泄密检查；
+- `.manifest.json`：全部交付文件的字节数和SHA-256。
+
+该四题重复实验仍属于代表性、描述性分析，不等于复现论文65题总体
+结果，也不能据此宣称某一种发言机制普遍更优。
+
+## 13. 官方 GPT-4.1 四题结果对照
+
+论文正文主要呈现总体指标，不逐行列出 ID 1、5、7、25 的结果；作者
+公开的 `HiddenBench-results` 数据集包含每题原始 session。本项目冻结
+以下三个官方文件，并按官方 `src/hiddenbench/metrics.py` 重新计算：
+
+- `paper/hidden_manual_adapted/hidden_manual_adapted_gpt-4.1.json`
+  - SHA-256：`1c425d73ff384a182ecc3a5109546eaaf62618e076300c8d3ccf384ae031d9cf`
+- `paper/hidden_generated/hidden_generated_gpt-4.1.json`
+  - SHA-256：`e0ea7e3d1f2ba96f636c0eafd8fd485e73b2785e7ee9911e3000d253cd613a84`
+- `paper/full_profile/full_profile_gpt-4.1.json`
+  - SHA-256：`262ce811e96f1d28a0ef1bdb69e42487acbd8da0c56d67c327351cd6c2bb1e55`
+
+核验时的 HiddenBench 官方代码提交为
+`3be6ca16973e4fb751ffc0dfb7eb11f2d28335d1`。下载上述文件到
+`.tmp/hiddenbench-official/` 后运行：
+
+```powershell
+python reports/build_hiddenbench_official_comparison.py
+```
+
+脚本先验证三个文件的 SHA-256，再以场景名匹配四道题。输出：
+
+- `reports/HiddenBench_官方GPT4.1四题对照_2026-07-30.csv`
+- `reports/HiddenBench_官方GPT4.1四题对照_2026-07-30.md`
+
+每道题的官方 Hidden 与 Full Profile 均为10个 session。官方 Hidden
+文件记录15轮讨论；公开 Full Profile 文件中这四题均记录1轮。该对照
+使用 GPT-4.1，而本实验使用 DeepSeek V4 Flash；实现分别是作者自定义
+Python 模拟器与 Microsoft Agent Framework。因此只比较同题现象，
+不把差值单独归因于框架。
+
+### 原论文模型清单的口径说明
+
+论文正文称评测 15 个模型，但作者当前公开的 Figure 3 校验表列出 17 个
+模型配置：
+
+- OpenAI GPT（8）：GPT-4o、GPT-4.1-Nano、GPT-4.1-Mini、GPT-4.1、
+  GPT-5-Nano-Minimal、GPT-5-Mini-Minimal、GPT-5-Minimal、
+  GPT-5-Medium；
+- Google Gemini（3）：Gemini-2.5-Flash-Lite、Gemini-2.5-Flash、
+  Gemini-2.5-Pro；
+- Alibaba Qwen（4）：Qwen3-8B、Qwen3-14B、Qwen3-32B、
+  Qwen3-235B-A22B；
+- Meta Llama（2）：Llama-4-Scout、Llama-4-Maverick（结果文件名
+  `llama-4`）。
+
+该名单取自官方仓库提交
+`3be6ca16973e4fb751ffc0dfb7eb11f2d28335d1` 的
+`docs/paper_result_validation.md`。本文保留“正文 15 个”的原始口径，
+同时披露公开结果包实际存在的 17 项配置，避免两种版本口径混淆。

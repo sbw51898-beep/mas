@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Literal
@@ -168,4 +169,121 @@ class ScriptedPromptProvider:
                 "repair_requests": 0,
                 "usage": {},
             },
+        )
+
+
+class StabilityOfflineProvider:
+    """Deterministic prompt provider for the stability pipeline smoke test."""
+
+    def __init__(self) -> None:
+        self._answer_by_agent: dict[str, str] = {}
+        self.calls: list[dict[str, object]] = []
+
+    @staticmethod
+    def _metadata() -> dict[str, object]:
+        return {
+            "provider": "stability-offline",
+            "model": "stability-offline-v1",
+            "temperature": 0.0,
+            "thinking": "disabled",
+            "api_requests": 0,
+            "repair_requests": 0,
+            "usage": {},
+        }
+
+    @staticmethod
+    def _answers_from_prompt(prompt: str) -> tuple[str, ...]:
+        patterns = (
+            r"one exact answer from:\s*(.*?)>",
+            r"must exactly equal one of:\s*(.*?)\n",
+        )
+        for pattern in patterns:
+            match = re.search(
+                pattern,
+                prompt,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            if match:
+                return tuple(
+                    item.strip().rstrip(".")
+                    for item in match.group(1).split("|")
+                    if item.strip()
+                )
+        return ()
+
+    @staticmethod
+    def _audit_payload(prompt: str) -> str:
+        facts: list[dict[str, object]] = []
+        pattern = re.compile(
+            r"^-\s+(private-fact:[^|\s]+)\s+\|\s+"
+            r"owner=([^|\s]+)\s+\|\s+private_fact=",
+            flags=re.MULTILINE,
+        )
+        for fact_id, owner in pattern.findall(prompt):
+            facts.append(
+                {
+                    "fact_id": fact_id,
+                    "owner_agent_id": owner,
+                    "disclosed": False,
+                    "evidence_message_ids": [],
+                    "evidence_quote": "",
+                    "reason": (
+                        "Offline smoke mode does not make semantic "
+                        "disclosure claims."
+                    ),
+                    "confidence": 1.0,
+                }
+            )
+        return json.dumps({"facts": facts}, ensure_ascii=False)
+
+    async def complete(
+        self,
+        *,
+        agent_id: str,
+        system_prompt: str,
+        user_prompt: str,
+        seed: int,
+        json_response: bool,
+    ) -> PromptCompletion:
+        self.calls.append(
+            {
+                "agent_id": agent_id,
+                "system_prompt": system_prompt,
+                "user_prompt": user_prompt,
+                "seed": seed,
+                "json_response": json_response,
+            }
+        )
+        if agent_id == "disclosure-auditor":
+            text = self._audit_payload(user_prompt)
+        elif json_response:
+            answers = self._answers_from_prompt(user_prompt)
+            if not answers:
+                raise ValueError(
+                    "offline vote prompt did not contain possible answers"
+                )
+            answer = answers[0]
+            self._answer_by_agent[agent_id] = answer
+            text = json.dumps(
+                {
+                    "vote": answer,
+                    "rationale": (
+                        f"Offline deterministic vote for {answer}."
+                    ),
+                },
+                ensure_ascii=False,
+            )
+        else:
+            answer = self._answer_by_agent.get(agent_id)
+            if answer is None:
+                raise ValueError(
+                    "offline discussion requires a prior vote"
+                )
+            text = (
+                f"I recommend {answer}. This is deterministic offline "
+                "smoke-test content."
+            )
+        return PromptCompletion(
+            text=text,
+            provider_metadata=self._metadata(),
         )

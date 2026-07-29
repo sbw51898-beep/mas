@@ -9,7 +9,13 @@ from typer.testing import CliRunner
 
 from mas_experiment.domain import AgentResponse, AgentRole, Message, Question
 from mas_experiment.cli import app
-from mas_experiment.providers import DeterministicProvider
+from mas_experiment.hiddenbench_data import load_hiddenbench_task
+from mas_experiment.hiddenbench_prompts import build_vote_user_prompt
+from mas_experiment.hiddenbench_protocol import parse_hiddenbench_vote
+from mas_experiment.providers import (
+    DeterministicProvider,
+    StabilityOfflineProvider,
+)
 from mas_experiment.traces import read_results
 
 
@@ -17,6 +23,9 @@ runner = CliRunner()
 ROOT = Path(__file__).parents[1]
 HIDDENBENCH_SCRIPT = (
     ROOT / "tests" / "fixtures" / "hiddenbench_script.json"
+)
+STABILITY_CONFIG = (
+    ROOT / "configs/hiddenbench-ai-disclosure-stability.json"
 )
 
 
@@ -39,6 +48,52 @@ class FailingInitialProvider(DeterministicProvider):
             visible_messages=visible_messages,
             seed=seed,
         )
+
+
+async def test_stability_offline_provider_returns_valid_outputs() -> None:
+    task = load_hiddenbench_task(
+        ROOT / "data/hiddenbench/benchmark.json",
+        task_id=1,
+        expected_sha256=(
+            "2815AFFFCA4E470D1DFBC81E625160447DF1109CE371968181C9E1E6B90443A3"
+        ),
+    )
+    provider = StabilityOfflineProvider()
+    vote = await provider.complete(
+        agent_id="agent-a",
+        system_prompt=task.description,
+        user_prompt=build_vote_user_prompt(
+            task,
+            (),
+            phase="hidden_pre",
+        ),
+        seed=1,
+        json_response=True,
+    )
+    message = await provider.complete(
+        agent_id="agent-a",
+        system_prompt=task.description,
+        user_prompt="You are the first to speak.",
+        seed=1,
+        json_response=False,
+    )
+    audit = await provider.complete(
+        agent_id="disclosure-auditor",
+        system_prompt="Return JSON only.",
+        user_prompt=(
+            "PRIVATE FACTS:\n"
+            '- private-fact:agent-a | owner=agent-a | private_fact="Fact A"\n'
+            '- private-fact:agent-b | owner=agent-b | private_fact="Fact B"\n'
+            "\nPUBLIC MESSAGES:\n"
+            "m-1 | agent-a | I recommend A.\n"
+        ),
+        seed=1,
+        json_response=True,
+    )
+
+    assert parse_hiddenbench_vote(task, vote.text)
+    assert message.text
+    assert json.loads(audit.text)["facts"]
 
 
 def test_cli_offline_run_creates_forty_records(tmp_path) -> None:
@@ -420,3 +475,84 @@ def test_hiddenbench_screening_rejects_tampered_manifest(tmp_path) -> None:
     assert result.exit_code != 0
     assert "manifest hash mismatch" in result.output
     assert not output.exists()
+
+
+def test_hiddenbench_dynamic_pilot_help_lists_control_inputs() -> None:
+    result = runner.invoke(app, ["hiddenbench-dynamic-pilot", "--help"])
+
+    assert result.exit_code == 0
+    assert "--frozen-baseline" in result.output
+    assert "--config" in result.output
+    assert "--output" in result.output
+
+
+def test_hiddenbench_dynamic_pilot_writes_budget_matched_bundle(
+    tmp_path,
+) -> None:
+    output = tmp_path / "dynamic.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-dynamic-pilot",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    records = [
+        json.loads(line)
+        for line in output.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    assert len(records) == 3
+    assert all(
+        len(record["run"]["discussion_messages"]) == 60
+        for record in records
+    )
+    assert output.with_suffix(".trace.jsonl").exists()
+    assert output.with_suffix(".md").exists()
+    assert output.with_suffix(".gate.json").exists()
+    assert output.with_suffix(".manifest.json").exists()
+    assert "logical response slots=216" in result.output
+    assert "selector LLM calls=0" in result.output
+
+
+def test_hiddenbench_stability_help_lists_resume_workers_and_judge() -> None:
+    result = runner.invoke(app, ["hiddenbench-stability", "--help"])
+
+    assert result.exit_code == 0
+    assert "--resume" in result.output
+    assert "--experiment-workers" in result.output
+    assert "--judge-workers" in result.output
+    assert "--skip-ai-judge" in result.output
+
+
+def test_hiddenbench_stability_offline_writes_gated_bundle(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "stability.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-stability",
+            "--offline",
+            "--smoke",
+            "--config",
+            str(STABILITY_CONFIG),
+            "--output",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "gate passed" in result.output
+    assert output.with_suffix(".ai-disclosure.jsonl").exists()
+    assert output.with_suffix(".summary.csv").exists()

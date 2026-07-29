@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "bytes": 2795418,
+      "path": "hiddenbench-dynamic-pilot-20260729.jsonl",
+      "sha256": "c0ffdf97b1582595c58403167eab6bb640a81fdf1b716d1e6bce1d13ccce6cf4"
+    },
+    {
+      "bytes": 311449,
+      "path": "hiddenbench-dynamic-pilot-20260729.trace.jsonl",
+      "sha256": "fba94621fcf2f11799983e44c98dfc18fc1ae0244f7d811ea02e3b0143227694"
+    },
+    {
+      "bytes": 2350,
+      "path": "hiddenbench-dynamic-pilot-20260729.md",
+      "sha256": "26668f2d621bc9e747410d5a5c817b233e999460100d574b322c5e21c0ce82f1"
+    },
+    {
+      "bytes": 357,
+      "path": "hiddenbench-dynamic-pilot-20260729.gate.json",
+      "sha256": "42e639b1829a10a4f70de733c7e0442c3af80d1fefd8a26be5da00cf1b3f92cb"
+    },
+    {
+      "bytes": 71266,
+      "path": "HiddenBench_动态机制逐发言编码_ID1_ID5_ID7_2026-07-29.csv",
+      "sha256": "3be3738e6a828ebc4c149917f4261a156a8adac7b190f909d823a96e01af3527"
+    },
+    {
+      "bytes": 1318,
+      "path": "HiddenBench_动态机制逐发言编码_ID1_ID5_ID7_2026-07-29.md",
+      "sha256": "e3112678851526eafdded11b0c3b9e96a25de3f8f0fc1cbdf7aa3817a4a2a2f7"
+    }
+  ],
+  "generated_at": "2026-07-29T03:27:35.904986+00:00",
+  "manifest_version": "1"
+}

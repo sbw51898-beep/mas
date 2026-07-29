@@ -16,6 +16,7 @@ from mas_experiment.hiddenbench_metrics import (
     compute_hiddenbench_metrics,
     fact_content_terms,
     lexical_fact_match,
+    rule_disclosure_evidence,
     score_hiddenbench_run,
 )
 
@@ -370,6 +371,33 @@ def test_disclosure_and_later_cross_agent_use_are_fact_level() -> None:
         and candidate.fact == fact
         for candidate in candidates
     )
+
+
+def test_rule_disclosure_evidence_returns_fact_level_labels() -> None:
+    fact = TASK.hidden_information[0]
+    owner = next(
+        agent_id
+        for agent_id, private_fact in ASSIGNMENT.private_information.items()
+        if private_fact == fact
+    )
+    raw = HiddenBenchRawRun.model_construct(
+        assignment=ASSIGNMENT,
+        discussion_messages=(
+            make_message(index=0, agent_id=owner, content=fact),
+        ),
+    )
+
+    evidence = rule_disclosure_evidence(raw)
+
+    assert set(evidence) == set(
+        ASSIGNMENT.private_information.values()
+    )
+    assert all(item.owner_agent_id for item in evidence.values())
+    assert all(
+        item.disclosed == bool(item.evidence_message_ids)
+        for item in evidence.values()
+    )
+    assert evidence[fact].evidence_message_ids == ("m-0",)
 
 
 def test_peer_guess_before_disclosure_is_not_cross_agent_use() -> None:
