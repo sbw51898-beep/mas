@@ -1,0 +1,18 @@
+{
+  "checks": {
+    "complete_ai_audits": true,
+    "complete_run_matrix": true,
+    "credential_leak_scan": true,
+    "deterministic_row_order": true,
+    "equal_speech_budgets": true,
+    "paired_seeds_and_assignments": true,
+    "provider_settings": true,
+    "sequential_visibility": true,
+    "task_and_dataset_hashes": true,
+    "unique_audit_keys": true,
+    "unique_run_keys": true,
+    "valid_ai_evidence": true,
+    "zero_selector_llm_calls": true
+  },
+  "passed": true
+}

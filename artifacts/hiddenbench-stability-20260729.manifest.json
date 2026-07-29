@@ -1,0 +1,41 @@
+{
+  "files": [
+    {
+      "bytes": 65430992,
+      "path": "hiddenbench-stability-20260729.jsonl",
+      "sha256": "4192695a93612a7a312e7151bbc22cbb053bbcd690d84a085f2b58e8febdf9b8"
+    },
+    {
+      "bytes": 55931451,
+      "path": "hiddenbench-stability-20260729.trace.jsonl",
+      "sha256": "a0f0caec9fd10c310acc941d09c65c25abf5e5b685bb449981089270278181fe"
+    },
+    {
+      "bytes": 179354,
+      "path": "hiddenbench-stability-20260729.ai-disclosure.jsonl",
+      "sha256": "eb9542f4d449dd35fd9d5710d3a1b647d7ceab9693276987a18ff65d872e0cd1"
+    },
+    {
+      "bytes": 24676,
+      "path": "hiddenbench-stability-20260729.disagreements.csv",
+      "sha256": "c45b0677fb6816d3c686f4da84b52bd1be591c80b1284cf1c651c2017386a788"
+    },
+    {
+      "bytes": 1496,
+      "path": "hiddenbench-stability-20260729.summary.csv",
+      "sha256": "bcade00180c4e0380ab8a417e09cc6ff614a9a0e1658031197a0460a9784dca1"
+    },
+    {
+      "bytes": 1788,
+      "path": "hiddenbench-stability-20260729.md",
+      "sha256": "3e34412dde18679a38c55ba150bd4eac1557a3836389ead9319ce3ed903e2192"
+    },
+    {
+      "bytes": 482,
+      "path": "hiddenbench-stability-20260729.gate.json",
+      "sha256": "7ab5d08bba66b8fb344d8356f3b1a9ce4c0f5d030f8ea990f93aceeb540781b6"
+    }
+  ],
+  "generated_at": "2026-07-29T16:42:09.475638+00:00",
+  "manifest_version": "1"
+}

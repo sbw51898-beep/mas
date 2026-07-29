@@ -1,0 +1,867 @@
+﻿study_key,fact_id,owner_agent_id,fact,ai_disclosed,rule_disclosed,agrees,requires_manual_review,ai_evidence_message_ids,rule_evidence_message_ids
+task-1:dynamic:rep-2,private-fact:agent-a,agent-a,A massive fire has blocked the supply truck and all other traffic.,False,True,False,True,,6279221457d3ba8b
+task-1:dynamic:rep-3,private-fact:agent-d,agent-d,The supply truck headed to the village from East Town was stuck in the tunnel.,True,False,False,True,7263190ff45f2a46,
+task-1:dynamic:rep-4,private-fact:agent-b,agent-b,The supply truck headed to the village from East Town was stuck in the tunnel.,False,True,False,True,,04b38c79924ddae0
+task-1:fixed:rep-5,private-fact:agent-a,agent-a,A massive fire has blocked the supply truck and all other traffic.,False,True,False,True,,72a1972b93d0e227
+task-1:fixed:rep-6,private-fact:agent-a,agent-a,A massive fire has blocked the supply truck and all other traffic.,False,True,False,True,,c23c18222f54c60c
+task-1:dynamic:rep-8,private-fact:agent-c,agent-c,A massive fire has blocked the supply truck and all other traffic.,False,True,False,True,,d10b60970871ea07
+task-1:dynamic:rep-8,private-fact:agent-d,agent-d,The walking trails have been closed since last weekend due to fallen trees.,False,True,False,True,,48dd4a01612f191f
+task-5:dynamic:rep-2,private-fact:agent-c,agent-c,"Stevens' information:
+- Comments from faculty in Florida and Mississippi indicate thatStevens tends to discourage new, innovative ideas
+- Has been observed drinking heavily in public, including at univer-sity events
+- Does consulting work in IT
+- Likes to garden
+Roberts' information:
+- Enjoys golf and tennis
+- Is divorced and remarried; has two children
+- Increased the diversity of the faculty when dean in Georgia
+- Instrumental in securing a multimillion dollar federal grant for aGeorgia based nonprofit institution
+Jones' information:
+- Feedback from other trustees indicates that there is tension betweenthe current provost and Jones
+- Law partners say Jones is a strategic thinker with respect to the direction of the firm
+- Reads mystery novels and biographies
+- Loves to cook",False,True,False,True,,ded2ddf3f28cd6b7
+task-5:fixed:rep-3,private-fact:agent-c,agent-c,"Stevens' information:
+- Comments from faculty in Florida and Mississippi indicate thatStevens tends to discourage new, innovative ideas
+- Has been observed drinking heavily in public, including at univer-sity events
+- Does consulting work in IT
+- Likes to garden
+Roberts' information:
+- Enjoys golf and tennis
+- Is divorced and remarried; has two children
+- Increased the diversity of the faculty when dean in Georgia
+- Instrumental in securing a multimillion dollar federal grant for aGeorgia based nonprofit institution
+Jones' information:
+- Feedback from other trustees indicates that there is tension betweenthe current provost and Jones
+- Law partners say Jones is a strategic thinker with respect to the direction of the firm
+- Reads mystery novels and biographies
+- Loves to cook",False,True,False,True,,26622b6fe27c2591
+task-5:dynamic:rep-3,private-fact:agent-c,agent-c,"Stevens' information:
+- Comments from faculty in Florida and Mississippi indicate thatStevens tends to discourage new, innovative ideas
+- Has been observed drinking heavily in public, including at univer-sity events
+- Does consulting work in IT
+- Likes to garden
+Roberts' information:
+- Enjoys golf and tennis
+- Is divorced and remarried; has two children
+- Increased the diversity of the faculty when dean in Georgia
+- Instrumental in securing a multimillion dollar federal grant for aGeorgia based nonprofit institution
+Jones' information:
+- Feedback from other trustees indicates that there is tension betweenthe current provost and Jones
+- Law partners say Jones is a strategic thinker with respect to the direction of the firm
+- Reads mystery novels and biographies
+- Loves to cook",False,True,False,True,,bade9050bc56f517
+task-5:fixed:rep-6,private-fact:agent-a,agent-a,"Stevens' information:
+- Stevens left the dean position at the Mississippi University beforeraising any funds for building campaign
+- As provost, Stevens teaches a class per year
+- Spouse has a PhD in Spanish and teaches a class or two at college level
+Roberts' information:
+- Has made numerous influential contacts as senator
+- Frequently volunteers for two highly respected nonprofit organiza-tions, one that provides affordable housing and another concernedwith advancing human rights
+- Is a vegetarian
+ Jones' information
+- Already lives in the area
+- Is married with a grown child
+- Sources at the law firm attribute a high turnover rate at the firm toJones' somewhat abrasive leadership style",False,True,False,True,,a2090300ca1814b1
+task-5:fixed:rep-6,private-fact:agent-b,agent-b,"Stevens' information:
+- Comments from faculty in Florida and Mississippi indicate thatStevens tends to discourage new, innovative ideas
+- Has been observed drinking heavily in public, including at univer-sity events
+- Does consulting work in IT
+- Likes to garden
+Roberts' information:
+- Enjoys golf and tennis
+- Is divorced and remarried; has two children
+- Increased the diversity of the faculty when dean in Georgia
+- Instrumental in securing a multimillion dollar federal grant for aGeorgia based nonprofit institution
+Jones' information:
+- Feedback from other trustees indicates that there is tension betweenthe current provost and Jones
+- Law partners say Jones is a strategic thinker with respect to the direction of the firm
+- Reads mystery novels and biographies
+- Loves to cook",False,True,False,True,,3d51d974430c4a9c
+task-5:fixed:rep-6,private-fact:agent-d,agent-d,"Stevens' information:
+- Left the dean position at the Mississippi University before raisingany funds for the building campaign
+- Enjoys sports, goes to football, and basketball games
+- Stays fit by biking and running
+- Has been observed drinking heavily in public, including at univer-sity events
+Roberts' information:
+- Previous students and faculty say Roberts is an excellent teacher
+- Is divorced and remarried; has two children
+- Faculty research productivity increased while serving as dean in Georgia
+Jones' information:
+- Sources at the law firm attribute a high turnover rate at the firm to Jones' somewhat abrasive leadership style
+- Plays bridge as a hobby
+- Enjoys traveling overseas on vacation
+- Feedback from other trustees indicates that there is tension between the current provost and Jones",False,True,False,True,,e9706082e8c14b10
+task-5:dynamic:rep-6,private-fact:agent-b,agent-b,"Stevens' information:
+- Comments from faculty in Florida and Mississippi indicate thatStevens tends to discourage new, innovative ideas
+- Has been observed drinking heavily in public, including at univer-sity events
+- Does consulting work in IT
+- Likes to garden
+Roberts' information:
+- Enjoys golf and tennis
+- Is divorced and remarried; has two children
+- Increased the diversity of the faculty when dean in Georgia
+- Instrumental in securing a multimillion dollar federal grant for aGeorgia based nonprofit institution
+Jones' information:
+- Feedback from other trustees indicates that there is tension betweenthe current provost and Jones
+- Law partners say Jones is a strategic thinker with respect to the direction of the firm
+- Reads mystery novels and biographies
+- Loves to cook",False,True,False,True,,99f5bef50041e87c
+task-5:fixed:rep-9,private-fact:agent-b,agent-b,"Stevens' information:
+- Left the dean position at the Mississippi University before raisingany funds for the building campaign
+- Enjoys sports, goes to football, and basketball games
+- Stays fit by biking and running
+- Has been observed drinking heavily in public, including at univer-sity events
+Roberts' information:
+- Previous students and faculty say Roberts is an excellent teacher
+- Is divorced and remarried; has two children
+- Faculty research productivity increased while serving as dean in Georgia
+Jones' information:
+- Sources at the law firm attribute a high turnover rate at the firm to Jones' somewhat abrasive leadership style
+- Plays bridge as a hobby
+- Enjoys traveling overseas on vacation
+- Feedback from other trustees indicates that there is tension between the current provost and Jones",False,True,False,True,,524070c412be980d
+task-7:dynamic:rep-0,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,c4107a1f40d0d97a
+task-7:dynamic:rep-0,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,9843a259180ba12d
+task-7:dynamic:rep-0,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,07a01efc43e23fbf
+task-7:dynamic:rep-0,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,0d4a5c3ce517a9f1
+task-7:fixed:rep-1,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,55c50d12fea96fa1
+task-7:fixed:rep-1,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,3cfbd7f1cfd2fd1a
+task-7:dynamic:rep-1,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,6046d0e13b409ced
+task-7:fixed:rep-2,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,0fce5db9697c6f30
+task-7:fixed:rep-2,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,cee64234a68c6e16
+task-7:fixed:rep-2,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,744f8c9b02f22311
+task-7:fixed:rep-2,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,0fff34d450158833
+task-7:dynamic:rep-2,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,48b89c7e629c92dd
+task-7:dynamic:rep-2,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,cb90aba2842a6e0b
+task-7:dynamic:rep-2,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,ebfc5e474f7a87a9
+task-7:dynamic:rep-2,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,845425f577593056
+task-7:fixed:rep-3,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,0d490689eea12046
+task-7:fixed:rep-3,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,581a00b2ae326b6d
+task-7:dynamic:rep-3,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,5e5da3bddc035a05
+task-7:dynamic:rep-3,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,b04c324221bc59d6
+task-7:dynamic:rep-3,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,cc5a976ece81d86c
+task-7:fixed:rep-4,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,7b69be380e3385d5
+task-7:fixed:rep-4,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,f61dc7bca29999b3
+task-7:fixed:rep-4,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,b1dff1844e8f50bd
+task-7:fixed:rep-4,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,b541a40e934e9ca1
+task-7:dynamic:rep-4,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,96f5a1aff27edd15
+task-7:dynamic:rep-4,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,ae7312c89a2a17dc
+task-7:dynamic:rep-4,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,edc23c1fd4a08629
+task-7:dynamic:rep-4,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,0ad164a5712115bc
+task-7:dynamic:rep-5,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,ce8d2d547e88ac4f
+task-7:dynamic:rep-5,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,62c611e9557ab4a3
+task-7:dynamic:rep-5,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,c34ff88ccc50b7cc
+task-7:dynamic:rep-5,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,5616f09075b46d9a
+task-7:dynamic:rep-6,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,c2d8ef1bed39ca97
+task-7:dynamic:rep-6,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,4725f7d6e925400d
+task-7:dynamic:rep-6,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,3791e8a9839cf483
+task-7:dynamic:rep-6,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,4393b06279568f68
+task-7:fixed:rep-7,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,68da41315d96673d
+task-7:fixed:rep-7,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,94b4f6b2645e62b4
+task-7:fixed:rep-7,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,c89e498b0108f789
+task-7:fixed:rep-7,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,d6870c1a4fc84f9e
+task-7:dynamic:rep-7,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,75bcb8de99490ec9
+task-7:dynamic:rep-7,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,0f9daf8dc5cc0133
+task-7:dynamic:rep-7,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,856b55dccae7d568
+task-7:dynamic:rep-7,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,7c9726249a77e2e1
+task-7:dynamic:rep-8,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,a878b3429115b552
+task-7:dynamic:rep-8,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,424f1a5f6ed84889
+task-7:dynamic:rep-8,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,6367daa89c24a459
+task-7:fixed:rep-9,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,d83b1d34d7335671
+task-7:fixed:rep-9,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,a387dd7752fe28d4
+task-7:fixed:rep-9,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,cd8c399c02bfdc0c
+task-7:fixed:rep-9,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,99ff81da188e3771
+task-7:dynamic:rep-9,private-fact:agent-a,agent-a,"Franklin Enterprises:
+- (b) N
+- (c) N
+Starlight Incorporated:
+- (b) Y
+- (d) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (d) Y
+- (e) Y
+- (f) N
+- (i) Y
+- (j) Y",False,True,False,True,,921e87a85b365072
+task-7:dynamic:rep-9,private-fact:agent-b,agent-b,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (f) Y
+- (i) Y
+Cape Industries:
+- (b) N
+- (c) Y
+- (d) Y
+- (f) N
+- (h) N
+- (i) Y",False,True,False,True,,db66c57aa040e7eb
+task-7:dynamic:rep-9,private-fact:agent-c,agent-c,"Franklin Enterprises:
+- (a) N
+- (b) N
+Starlight Incorporated:
+- (g) Y
+- (j) Y
+Cape Industries:
+- (c) Y
+- (d) Y
+- (e) Y
+- (h) N
+- (i) Y
+- (j) Y",False,True,False,True,,2e2f6987626dbb1a
+task-7:dynamic:rep-9,private-fact:agent-d,agent-d,"Franklin Enterprises:
+- (a) N
+- (c) N
+Starlight Incorporated:
+- (e) Y
+- (h) Y
+Cape Industries:
+- (a) Y
+- (b) N
+- (c) Y
+- (f) N
+- (h) N
+- (j) Y",False,True,False,True,,cafdc6bd56d8788c
+task-25:fixed:rep-1,private-fact:agent-a,agent-a,Repair teams confirm that solar panels at Station Charlie are offline due to windstorm damage. The backup batteries are depleted and the station has no power.,False,True,False,True,,096ade10bbf78e33
+task-25:dynamic:rep-1,private-fact:agent-c,agent-c,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,8b272ed925c403be
+task-25:fixed:rep-2,private-fact:agent-c,agent-c,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,4c2db8237ef4b2fe
+task-25:fixed:rep-3,private-fact:agent-a,agent-a,"Maintenance crew at Station Delta inspected all major systems this morning and confirmed water is safe, backup lights work, and no signs of contamination were found.",False,True,False,True,,fbf4206469c26bae
+task-25:dynamic:rep-4,private-fact:agent-d,agent-d,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,2ca40acdc596751f
+task-25:fixed:rep-5,private-fact:agent-a,agent-a,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,ac2d0840be345a55
+task-25:dynamic:rep-5,private-fact:agent-a,agent-a,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,d9d4e470192ce88a
+task-25:fixed:rep-7,private-fact:agent-d,agent-d,Repair teams confirm that solar panels at Station Charlie are offline due to windstorm damage. The backup batteries are depleted and the station has no power.,True,False,False,True,21fc5479a0539e72,
+task-25:dynamic:rep-7,private-fact:agent-b,agent-b,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,f2535f5e58a3f543
+task-25:fixed:rep-8,private-fact:agent-a,agent-a,"Maintenance crew at Station Delta inspected all major systems this morning and confirmed water is safe, backup lights work, and no signs of contamination were found.",True,False,False,True,790766b968fb9c57,
+task-25:fixed:rep-8,private-fact:agent-b,agent-b,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,5fc30e5364bba487
+task-25:dynamic:rep-8,private-fact:agent-b,agent-b,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,dd8b75689e7cd110
+task-25:fixed:rep-9,private-fact:agent-a,agent-a,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,d0be0d2aad662daf
+task-25:dynamic:rep-9,private-fact:agent-a,agent-a,"Field agent at Bravo reports air sensors detected low but abnormal readings, suggesting possible chemical contamination near Station Bravo.",False,True,False,True,,13a389a7cd2f82c0
