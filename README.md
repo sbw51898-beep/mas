@@ -216,3 +216,11 @@ AI审计对每条私有事实分别判断是否由其所有者公开，并必须
 自报的百分比。原有 `lexical-semantic-v2` 结果继续保留，二者不一致的
 事实进入人工复核CSV。输出还包括80次运行、公开对话/选择器trace、
 AI审计、稳定性summary、Markdown报告、gate和SHA-256 manifest。
+
+正式结果和老师审阅材料：
+
+- [四题十次重复分析](reports/HiddenBench_四题十次重复分析_2026-07-30.md)
+- [官方 GPT-4.1 四题逐题对照](reports/HiddenBench_官方GPT4.1四题对照_2026-07-30.md)
+- [2026-07-30 修订版 Word 报告](reports/给彭老师的HiddenBench_MAF复现实验最终报告_2026-07-30_修订版.docx)
+- `artifacts/hiddenbench-stability-20260729.*`：80 个 run、4,800 条
+  发言、AI 披露审计、分歧清单、汇总、闸门和 SHA-256 manifest。

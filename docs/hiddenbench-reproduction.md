@@ -341,3 +341,35 @@ AI不会自行决定分母，也不能修改对话和投票。首次输出不合
 
 该四题重复实验仍属于代表性、描述性分析，不等于复现论文65题总体
 结果，也不能据此宣称某一种发言机制普遍更优。
+
+## 13. 官方 GPT-4.1 四题结果对照
+
+论文正文主要呈现总体指标，不逐行列出 ID 1、5、7、25 的结果；作者
+公开的 `HiddenBench-results` 数据集包含每题原始 session。本项目冻结
+以下三个官方文件，并按官方 `src/hiddenbench/metrics.py` 重新计算：
+
+- `paper/hidden_manual_adapted/hidden_manual_adapted_gpt-4.1.json`
+  - SHA-256：`1c425d73ff384a182ecc3a5109546eaaf62618e076300c8d3ccf384ae031d9cf`
+- `paper/hidden_generated/hidden_generated_gpt-4.1.json`
+  - SHA-256：`e0ea7e3d1f2ba96f636c0eafd8fd485e73b2785e7ee9911e3000d253cd613a84`
+- `paper/full_profile/full_profile_gpt-4.1.json`
+  - SHA-256：`262ce811e96f1d28a0ef1bdb69e42487acbd8da0c56d67c327351cd6c2bb1e55`
+
+核验时的 HiddenBench 官方代码提交为
+`3be6ca16973e4fb751ffc0dfb7eb11f2d28335d1`。下载上述文件到
+`.tmp/hiddenbench-official/` 后运行：
+
+```powershell
+python reports/build_hiddenbench_official_comparison.py
+```
+
+脚本先验证三个文件的 SHA-256，再以场景名匹配四道题。输出：
+
+- `reports/HiddenBench_官方GPT4.1四题对照_2026-07-30.csv`
+- `reports/HiddenBench_官方GPT4.1四题对照_2026-07-30.md`
+
+每道题的官方 Hidden 与 Full Profile 均为10个 session。官方 Hidden
+文件记录15轮讨论；公开 Full Profile 文件中这四题均记录1轮。该对照
+使用 GPT-4.1，而本实验使用 DeepSeek V4 Flash；实现分别是作者自定义
+Python 模拟器与 Microsoft Agent Framework。因此只比较同题现象，
+不把差值单独归因于框架。

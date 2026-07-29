@@ -6,3 +6,4 @@ data/hiddenbench/benchmark.json text eol=lf
 # Disable line-ending normalization so a checkout preserves those hashes.
 artifacts/hiddenbench-showcase-20260728-v2.* -text
 artifacts/hiddenbench-screening-20260728-v2.* -text
+artifacts/hiddenbench-stability-20260729.* -text
