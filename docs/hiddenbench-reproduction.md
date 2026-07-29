@@ -235,3 +235,41 @@ Markdown 是面向老师的可读档案；manifest 保存 JSONL 和 Markdown 的
 - 不覆盖既有运行，除非明确传入 `--overwrite`。
 
 内容感知动态发言只在固定轮转基线完成并冻结以后另做扩展设计。
+
+## 11. 预算匹配的动态发言扩展
+
+动态扩展使用
+`configs/hiddenbench-dynamic-pilot.json` 锁定冻结基线的文件哈希、
+任务 ID、模型参数、五因子权重和发言额度。试验先运行 ID 1、5、7。
+
+公平性约束如下：
+
+- 固定轮转与动态顺序均为每名 Agent 15 次发言；
+- 每题均为 60 次公开发言，不提前终止；
+- 选择器 LLM 调用数为 0；
+- 选择器只改变 60 个槽位的归属顺序；
+- Token 数只报告、不宣称已经控制；
+- 动态 `round_index` 只是每四个槽位组成的报告块。
+
+离线协议检查：
+
+```powershell
+python -m mas_experiment.cli hiddenbench-dynamic-pilot `
+  --provider scripted `
+  --script tests/fixtures/hiddenbench_script.json `
+  --skip-connectivity `
+  --output artifacts/hiddenbench-dynamic-pilot-offline.jsonl
+```
+
+真实 DeepSeek 试验：
+
+```powershell
+python -m mas_experiment.cli hiddenbench-dynamic-pilot `
+  --provider deepseek `
+  --skip-connectivity `
+  --output artifacts/hiddenbench-dynamic-pilot-20260729.jsonl
+```
+
+命令在创建模型 provider 前校验冻结 JSONL、报告、配置和数据集哈希。
+输出包括动态运行 JSONL、180 条选择事件 trace、配对报告、协议 gate
+和覆盖全部文件的 SHA-256 manifest。

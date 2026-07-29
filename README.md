@@ -163,3 +163,20 @@ mas-experiment hiddenbench-showcase `
 这些指定的 v2 附件虽然位于通常被忽略的 `artifacts/` 目录，但已作为
 本次正式复现材料明确纳入版本控制。附件包含原始 Prompt、可见消息、
 60 条讨论、三种条件投票、指标和 SHA-256 manifest；不包含 API Key。
+
+## HiddenBench 预算匹配动态发言试验
+
+固定轮转基线冻结后，可先在错误共识案例 ID 1、5、7 上运行内容感知
+动态顺序：
+
+```powershell
+python -m mas_experiment.cli hiddenbench-dynamic-pilot `
+  --provider deepseek `
+  --skip-connectivity `
+  --output artifacts/hiddenbench-dynamic-pilot-20260729.jsonl
+```
+
+两种条件均为每个 Agent 15 次、每题总计 60 次公开发言。动态选择器只
+计算闭式分数，不调用 LLM，也不读取标准答案。输出额外包含逐次选择分数
+trace、协议 gate、配对报告和 SHA-256 manifest。三题仅用于机制与协议
+审计，不能据此作显著性或优越性结论。

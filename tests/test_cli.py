@@ -420,3 +420,50 @@ def test_hiddenbench_screening_rejects_tampered_manifest(tmp_path) -> None:
     assert result.exit_code != 0
     assert "manifest hash mismatch" in result.output
     assert not output.exists()
+
+
+def test_hiddenbench_dynamic_pilot_help_lists_control_inputs() -> None:
+    result = runner.invoke(app, ["hiddenbench-dynamic-pilot", "--help"])
+
+    assert result.exit_code == 0
+    assert "--frozen-baseline" in result.output
+    assert "--config" in result.output
+    assert "--output" in result.output
+
+
+def test_hiddenbench_dynamic_pilot_writes_budget_matched_bundle(
+    tmp_path,
+) -> None:
+    output = tmp_path / "dynamic.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "hiddenbench-dynamic-pilot",
+            "--provider",
+            "scripted",
+            "--script",
+            str(HIDDENBENCH_SCRIPT),
+            "--output",
+            str(output),
+            "--skip-connectivity",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    records = [
+        json.loads(line)
+        for line in output.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+    assert len(records) == 3
+    assert all(
+        len(record["run"]["discussion_messages"]) == 60
+        for record in records
+    )
+    assert output.with_suffix(".trace.jsonl").exists()
+    assert output.with_suffix(".md").exists()
+    assert output.with_suffix(".gate.json").exists()
+    assert output.with_suffix(".manifest.json").exists()
+    assert "logical response slots=216" in result.output
+    assert "selector LLM calls=0" in result.output

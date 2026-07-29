@@ -42,6 +42,20 @@ from mas_experiment.hiddenbench_domain import (
     HiddenBenchRun,
     assign_hidden_information,
 )
+from mas_experiment.hiddenbench_dynamic_domain import (
+    DynamicBundlePaths,
+    load_dynamic_pilot_config,
+)
+from mas_experiment.hiddenbench_dynamic_gate import (
+    load_and_validate_frozen_baseline,
+    validate_dynamic_protocol,
+)
+from mas_experiment.hiddenbench_dynamic_protocol import (
+    run_hiddenbench_dynamic_task,
+)
+from mas_experiment.hiddenbench_dynamic_reporting import (
+    write_dynamic_pilot_bundle,
+)
 from mas_experiment.hiddenbench_metrics import score_hiddenbench_run
 from mas_experiment.hiddenbench_prompts import (
     build_hidden_system_prompt,
@@ -99,6 +113,9 @@ class HiddenBenchCounts(NamedTuple):
 
 HIDDENBENCH_DATASET = Path("data/hiddenbench/benchmark.json")
 HIDDENBENCH_CONFIG = Path("configs/hiddenbench-screening.json")
+HIDDENBENCH_DYNAMIC_CONFIG = Path(
+    "configs/hiddenbench-dynamic-pilot.json"
+)
 
 
 def _load_hiddenbench_config() -> dict[str, Any]:
@@ -749,6 +766,99 @@ async def _run_hiddenbench_screening(
     )
 
 
+async def _run_hiddenbench_dynamic_pilot(
+    *,
+    provider_name: str,
+    script: Path | None,
+    config_path: Path,
+    frozen_baseline: Path,
+    output: Path,
+    skip_connectivity: bool,
+) -> tuple[HiddenBenchCounts, DynamicBundlePaths]:
+    config = load_dynamic_pilot_config(config_path)
+    if frozen_baseline != Path(config.frozen_baseline.jsonl):
+        frozen = config.frozen_baseline.model_copy(
+            update={"jsonl": str(frozen_baseline)}
+        )
+        config = config.model_copy(update={"frozen_baseline": frozen})
+
+    baseline_runs = load_and_validate_frozen_baseline(Path.cwd(), config)
+    shared_provider = (
+        create_hiddenbench_provider(
+            provider_name,
+            task=baseline_runs[config.pilot_task_ids[0]].task,
+            script=script,
+        )
+        if provider_name == "deepseek"
+        else None
+    )
+    connectivity_requests = 0
+    if (
+        provider_name == "deepseek"
+        and not skip_connectivity
+        and shared_provider is not None
+    ):
+        connectivity_requests = await _hiddenbench_connectivity_probe(
+            baseline_runs[config.pilot_task_ids[0]].task,
+            shared_provider,
+            seed=config.base_seed,
+        )
+
+    dynamic_runs = []
+    for task_id in config.pilot_task_ids:
+        baseline = baseline_runs[task_id]
+        provider = shared_provider or create_hiddenbench_provider(
+            provider_name,
+            task=baseline.task,
+            script=script,
+        )
+        dynamic_runs.append(
+            await run_hiddenbench_dynamic_task(
+                baseline.task,
+                provider,
+                seed=baseline.assignment.seed,
+                assignment=baseline.assignment,
+                baseline_run_id=baseline.run_id,
+                config=config,
+            )
+        )
+    dynamic_tuple = tuple(dynamic_runs)
+    gate = validate_dynamic_protocol(
+        baseline_runs,
+        dynamic_tuple,
+        config,
+        provider_name=provider_name,
+    )
+    paths = write_dynamic_pilot_bundle(
+        baseline_runs=baseline_runs,
+        dynamic_runs=dynamic_tuple,
+        gate=gate,
+        output=output,
+    )
+    return (
+        HiddenBenchCounts(
+            records=len(dynamic_runs),
+            connectivity=connectivity_requests,
+            api_requests=sum(
+                item.run.metrics.api_requests for item in dynamic_runs
+            ),
+            repair_requests=sum(
+                item.run.metrics.repair_requests for item in dynamic_runs
+            ),
+            logical_slots=sum(
+                int(
+                    item.run.provider_metadata.get(
+                        "logical_response_slots",
+                        0,
+                    )
+                )
+                for item in dynamic_runs
+            ),
+        ),
+        paths,
+    )
+
+
 async def _run_experiments(
     *,
     provider_name: str,
@@ -1058,6 +1168,73 @@ def hiddenbench_screening_command(
         f"logical response slots={counts.logical_slots}; "
         f"report={output.with_suffix('.md')}; "
         f"manifest={output.with_suffix('.manifest.json')}"
+    )
+
+
+@app.command("hiddenbench-dynamic-pilot")
+def hiddenbench_dynamic_pilot_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination dynamic JSONL file."),
+    ] = Path("artifacts/hiddenbench-dynamic-pilot-20260729.jsonl"),
+    provider: Annotated[
+        str,
+        typer.Option(help="deepseek or scripted"),
+    ] = "deepseek",
+    script: Annotated[
+        Path | None,
+        typer.Option(help="Strict offline script for scripted provider."),
+    ] = None,
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked dynamic pilot configuration."),
+    ] = HIDDENBENCH_DYNAMIC_CONFIG,
+    frozen_baseline: Annotated[
+        Path,
+        typer.Option(help="Frozen fixed round-robin baseline JSONL."),
+    ] = Path("artifacts/hiddenbench-screening-20260728-v2.jsonl"),
+    skip_connectivity: Annotated[
+        bool,
+        typer.Option(help="Skip the uncounted connectivity probe."),
+    ] = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(help="Replace existing dynamic pilot artifacts."),
+    ] = False,
+) -> None:
+    dynamic_paths = (
+        output,
+        output.with_suffix(".trace.jsonl"),
+        output.with_suffix(".md"),
+        output.with_suffix(".gate.json"),
+        output.with_suffix(".manifest.json"),
+    )
+    existing = [path for path in dynamic_paths if path.exists()]
+    if existing and not overwrite:
+        raise typer.BadParameter(
+            "HiddenBench dynamic artifact already exists: "
+            + ", ".join(str(path) for path in existing)
+        )
+    counts, paths = asyncio.run(
+        _run_hiddenbench_dynamic_pilot(
+            provider_name=provider,
+            script=script,
+            config_path=config,
+            frozen_baseline=frozen_baseline,
+            output=output,
+            skip_connectivity=skip_connectivity,
+        )
+    )
+    typer.echo(
+        f"Completed HiddenBench dynamic pilot -> {paths.runs}; "
+        f"records={counts.records}; "
+        f"connectivity API requests={counts.connectivity}; "
+        f"formal API requests={counts.api_requests}; "
+        f"repair requests={counts.repair_requests}; "
+        f"logical response slots={counts.logical_slots}; "
+        "selector LLM calls=0; "
+        f"trace={paths.trace}; report={paths.report}; "
+        f"gate={paths.gate}; manifest={paths.manifest}"
     )
 
 
