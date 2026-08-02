@@ -31,6 +31,20 @@ _DISCLOSURE_FIRST_PROMPT = (
     "to one or two sentences, then give your current view."
 )
 
+_EXCHANGE_FIRST_PROMPT = (
+    "You are the first to speak. Share 1-2 decision-relevant facts you "
+    "have received, and give one reason the current front-runner may be "
+    "incorrect."
+)
+_EXCHANGE_TEMPLATE = """Previous messages from other people:
+{messages}
+Share 1-2 decision-relevant facts you have, and give one reason the current
+front-runner may be incorrect."""
+_DECIDE_TEMPLATE = """Previous messages from other people:
+{messages}
+Summarize the strongest evidence and your remaining uncertainty before
+voting."""
+
 
 def _format_information(information: tuple[str, ...]) -> str:
     return "\n".join(f"- {item}" for item in information)
@@ -101,6 +115,24 @@ def build_discussion_user_prompt(
     if not visible_messages:
         return _FIRST_SPEAKER_PROMPT
     return _LATER_SPEAKER_TEMPLATE.format(
+        messages=_format_messages(visible_messages)
+    )
+
+
+def build_exchange_user_prompt(
+    visible_messages: tuple[HiddenBenchMessage, ...],
+) -> str:
+    if not visible_messages:
+        return _EXCHANGE_FIRST_PROMPT
+    return _EXCHANGE_TEMPLATE.format(
+        messages=_format_messages(visible_messages)
+    )
+
+
+def build_decide_user_prompt(
+    visible_messages: tuple[HiddenBenchMessage, ...],
+) -> str:
+    return _DECIDE_TEMPLATE.format(
         messages=_format_messages(visible_messages)
     )
 

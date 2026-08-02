@@ -18,7 +18,13 @@ from mas_experiment.hiddenbench_dynamic_domain import (
 )
 
 
-StudyCondition = Literal["fixed", "dynamic", "fixed-disc", "dynamic-disc"]
+StudyCondition = Literal[
+    "fixed",
+    "dynamic",
+    "fixed-disc",
+    "dynamic-disc",
+    "structured",
+]
 DynamicProviderSettings = DynamicProviderConfig
 SelectorWeights = DynamicSelectorConfig
 

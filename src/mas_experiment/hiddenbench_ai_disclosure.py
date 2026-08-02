@@ -344,7 +344,7 @@ async def audit_run_disclosure(
     user_prompt = build_disclosure_audit_prompt(run)
     metadata: list[dict[str, Any]] = []
     last_error: ValueError | None = None
-    for attempt in range(3):
+    for attempt in range(5):
         if attempt == 0:
             attempt_prompt = user_prompt
             system_prompt = (
@@ -402,5 +402,5 @@ async def audit_run_disclosure(
                     provider_metadata=aggregate,
                 )
     raise ValueError(
-        "audit JSON invalid after three attempts"
+        "audit JSON invalid after five attempts"
     ) from last_error

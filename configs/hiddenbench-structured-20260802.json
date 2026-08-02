@@ -1,0 +1,25 @@
+{
+  "configuration_version": "hiddenbench-structured-v1",
+  "task_ids": [
+    1,
+    5,
+    7,
+    25
+  ],
+  "repetitions": 10,
+  "base_seed": 20260729,
+  "dataset_sha256": "2815afffca4e470d1dfbc81e625160447df1109ce371968181c9e1e6b90443a3",
+  "prompt_version": "hiddenbench-structured-exchange-decide-v1",
+  "exchange_rounds": 2,
+  "decide_passes": 1,
+  "experiment_workers": 8,
+  "judge_workers": 16,
+  "judge_model": "deepseek-v4-flash",
+  "judge_prompt_version": "hiddenbench-disclosure-audit-v1",
+  "provider": {
+    "model": "deepseek-v4-flash",
+    "temperature": 0,
+    "thinking": "disabled"
+  },
+  "baseline_commit": "0d19e8b"
+}

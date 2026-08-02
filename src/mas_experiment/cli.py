@@ -84,6 +84,21 @@ from mas_experiment.hiddenbench_stability_reporting import (
     StabilityBundlePaths,
     write_stability_bundle,
 )
+from mas_experiment.hiddenbench_structured_protocol import (
+    StructuredStudyConfig,
+    load_structured_config,
+)
+from mas_experiment.hiddenbench_structured_study import (
+    StructuredGate,
+    StructuredRunRecord,
+    build_structured_gate,
+    read_completed_study_records as read_structured_records,
+    run_structured_study,
+)
+from mas_experiment.hiddenbench_structured_reporting import (
+    StructuredBundlePaths,
+    write_structured_bundle,
+)
 from mas_experiment.orchestrations import (
     prepare_initial_state,
     run_dynamic,
@@ -149,6 +164,9 @@ HIDDENBENCH_DYNAMIC_CONFIG = Path(
 )
 HIDDENBENCH_STABILITY_CONFIG = Path(
     "configs/hiddenbench-ai-disclosure-stability.json"
+)
+HIDDENBENCH_STRUCTURED_CONFIG = Path(
+    "configs/hiddenbench-structured-20260802.json"
 )
 
 
@@ -1139,6 +1157,147 @@ async def _run_hiddenbench_stability(
     return counts, paths
 
 
+async def _audit_structured_records(
+    *,
+    records: tuple[StructuredRunRecord, ...],
+    config: StructuredStudyConfig,
+    audit_path: Path,
+    offline: bool,
+    settings: DeepSeekSettings | None,
+    resume: bool,
+) -> tuple[DisclosureAudit, ...]:
+    existing = (
+        _read_disclosure_audits(audit_path)
+        if resume
+        else ()
+    )
+    order = {
+        record.key.value: index
+        for index, record in enumerate(records)
+    }
+    by_key = {
+        audit.study_key.value: audit for audit in existing
+    }
+    unknown = set(by_key) - set(order)
+    if unknown:
+        raise ValueError(
+            f"audit file contains unknown keys: {sorted(unknown)}"
+        )
+    semaphore = asyncio.Semaphore(config.judge_workers)
+    write_lock = asyncio.Lock()
+
+    async def audit_one(record: StructuredRunRecord) -> None:
+        if record.key.value in by_key:
+            return
+        async with semaphore:
+            audit = await audit_run_disclosure(
+                record.run,
+                provider=_stability_provider_factory(
+                    offline=offline,
+                    settings=settings,
+                ),
+                study_key=StudyKey(
+                    task_id=record.key.task_id,
+                    condition="structured",
+                    repetition=record.key.repetition,
+                ),
+                judge_model=(
+                    "stability-offline-v1"
+                    if offline
+                    else config.judge_model
+                ),
+                judge_prompt_version=config.judge_prompt_version,
+                seed=record.pair_seed,
+            )
+        async with write_lock:
+            by_key[record.key.value] = audit
+            _atomic_write_disclosure_audits(
+                audit_path,
+                tuple(by_key.values()),
+                order,
+            )
+
+    await asyncio.gather(*(audit_one(record) for record in records))
+    return tuple(
+        by_key[record.key.value] for record in records
+    )
+
+
+async def _run_hiddenbench_structured(
+    *,
+    config_path: Path,
+    output: Path,
+    offline: bool,
+    resume: bool,
+    skip_ai_judge: bool,
+    experiment_workers: int | None,
+    judge_workers: int | None,
+) -> tuple[StructuredBundlePaths | None, int, int]:
+    config = load_structured_config(config_path)
+    updates: dict[str, int] = {}
+    if experiment_workers is not None:
+        updates["experiment_workers"] = experiment_workers
+    if judge_workers is not None:
+        updates["judge_workers"] = judge_workers
+    if updates:
+        config = StructuredStudyConfig.model_validate(
+            {**config.model_dump(mode="json"), **updates}
+        )
+    all_tasks = load_hiddenbench_tasks(
+        HIDDENBENCH_DATASET,
+        expected_sha256=config.dataset_sha256,
+    )
+    tasks = tuple(
+        task for task in all_tasks if task.id in config.task_ids
+    )
+    settings = None if offline else DeepSeekSettings.from_env()
+    await run_structured_study(
+        tasks=tasks,
+        config=config,
+        provider_factory=lambda: _stability_provider_factory(
+            offline=offline,
+            settings=settings,
+        ),
+        output=output,
+        resume=resume,
+    )
+    records = read_structured_records(output)
+    formal_requests = sum(
+        record.run.metrics.api_requests for record in records
+    )
+    if skip_ai_judge:
+        return None, len(records), formal_requests
+    audit_path = output.with_suffix(".ai-disclosure.jsonl")
+    audits = await _audit_structured_records(
+        records=records,
+        config=config,
+        audit_path=audit_path,
+        offline=offline,
+        settings=settings,
+        resume=resume,
+    )
+    gate = build_structured_gate(
+        config,
+        records,
+        audits,
+        dataset_path=HIDDENBENCH_DATASET,
+    )
+    if not gate.passed:
+        raise RuntimeError("structured study gate failed")
+    paths = write_structured_bundle(
+        config=config,
+        records=records,
+        audits=audits,
+        gate=gate,
+        output=output,
+    )
+    audit_requests = sum(
+        int(audit.provider_metadata.get("api_requests", 0))
+        for audit in audits
+    )
+    return paths, len(records), formal_requests + audit_requests
+
+
 async def _run_experiments(
     *,
     provider_name: str,
@@ -1603,6 +1762,80 @@ def hiddenbench_stability_command(
         f"selector LLM calls={counts.selector_llm_calls}; "
         f"summary={paths.summary}; report={paths.report}; "
         f"manifest={paths.manifest}"
+    )
+
+
+@app.command("hiddenbench-structured")
+def hiddenbench_structured_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination structured-study JSONL file."),
+    ] = Path("artifacts/hiddenbench-structured-20260802.jsonl"),
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked structured-study configuration."),
+    ] = HIDDENBENCH_STRUCTURED_CONFIG,
+    offline: Annotated[
+        bool,
+        typer.Option(
+            "--offline",
+            help="Use deterministic zero-cost smoke providers.",
+        ),
+    ] = False,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume/--no-resume",
+            help="Resume complete runs and completed AI audits.",
+        ),
+    ] = True,
+    experiment_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent task/repetition workers.",
+        ),
+    ] = None,
+    judge_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent disclosure-audit workers.",
+        ),
+    ] = None,
+    skip_ai_judge: Annotated[
+        bool,
+        typer.Option(
+            help="Run discussions only; do not produce a formal bundle.",
+        ),
+    ] = False,
+) -> None:
+    """Run the paper's Exchange-then-Decide structured protocol."""
+    paths, records, total_requests = asyncio.run(
+        _run_hiddenbench_structured(
+            config_path=config,
+            output=output,
+            offline=offline,
+            resume=resume,
+            skip_ai_judge=skip_ai_judge,
+            experiment_workers=experiment_workers,
+            judge_workers=judge_workers,
+        )
+    )
+    if paths is None:
+        typer.echo(
+            f"Completed discussions only -> {output}; "
+            f"records={records}; AI judge skipped; "
+            "no formal gate or bundle was produced."
+        )
+        return
+    typer.echo(
+        f"HiddenBench structured gate passed -> {paths.runs}; "
+        f"records={records}; total API requests={total_requests}; "
+        f"summary={paths.summary}; report={paths.report}; "
+        f"gate={paths.gate}; manifest={paths.manifest}"
     )
 
 
