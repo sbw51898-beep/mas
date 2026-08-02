@@ -616,7 +616,9 @@ def _fm25_candidates(
                 if message.agent_id == agent_id
                 and message.turn_index > disclosure.turn_index
             )
-            post_vote = post_by_agent[agent_id]
+            post_vote = post_by_agent.get(agent_id)
+            if post_vote is None:
+                continue
             used = any(
                 lexical_fact_match(fact, message.content)
                 for message in later_messages
@@ -690,9 +692,11 @@ def compute_hiddenbench_metrics(
     full_votes: tuple[HiddenBenchVote, ...],
     *,
     provider_metadata: Mapping[str, Any] | None = None,
+    validate_four_votes: bool = True,
 ) -> tuple[HiddenBenchMetrics, tuple[MastCandidate, ...]]:
-    for votes in (pre_votes, post_votes, full_votes):
-        _validate_votes(votes)
+    if validate_four_votes:
+        for votes in (pre_votes, post_votes, full_votes):
+            _validate_votes(votes)
 
     y_pre = _accuracy(pre_votes, task.correct_answer)
     y_post = _accuracy(post_votes, task.correct_answer)
@@ -747,7 +751,11 @@ def compute_hiddenbench_metrics(
     return metrics, tuple(candidates)
 
 
-def score_hiddenbench_run(raw_run: HiddenBenchRawRun) -> HiddenBenchRun:
+def score_hiddenbench_run(
+    raw_run: HiddenBenchRawRun,
+    *,
+    validate_four_votes: bool = True,
+) -> HiddenBenchRun:
     metrics, candidates = compute_hiddenbench_metrics(
         raw_run.task,
         raw_run.assignment,
@@ -756,6 +764,7 @@ def score_hiddenbench_run(raw_run: HiddenBenchRawRun) -> HiddenBenchRun:
         raw_run.hidden_post_votes,
         raw_run.full_profile_votes,
         provider_metadata=raw_run.provider_metadata,
+        validate_four_votes=validate_four_votes,
     )
     return HiddenBenchRun.model_validate(
         {
