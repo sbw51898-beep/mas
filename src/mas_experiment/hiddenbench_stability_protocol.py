@@ -63,66 +63,79 @@ async def run_study_pair(
     config: StabilityStudyConfig,
     fixed_provider: PromptProvider,
     dynamic_provider: PromptProvider,
-) -> tuple[StudyRunRecord, StudyRunRecord]:
+) -> tuple[StudyRunRecord, ...]:
     pair_seed = derive_pair_seed(
         config.base_seed,
         task_id=task.id,
         repetition=repetition,
     )
-    fixed_raw = await run_hiddenbench_task(
-        task,
-        fixed_provider,
-        seed=pair_seed,
-        discussion_rounds=15,
-    )
-    fixed_run = score_hiddenbench_run(fixed_raw)
-    fingerprint = assignment_fingerprint(fixed_run)
-    fixed = StudyRunRecord(
-        key=StudyKey(
-            task_id=task.id,
-            condition="fixed",
-            repetition=repetition,
-        ),
-        pair_seed=pair_seed,
-        assignment_fingerprint=fingerprint,
-        run=fixed_run,
-    )
+    records: dict[str, StudyRunRecord] = {}
+    baseline_run_id: str | None = None
+    assignment_fingerprints: set[str] = set()
+    for condition in config.conditions:
+        if condition in ("fixed", "fixed-disc"):
+            fixed_raw = await run_hiddenbench_task(
+                task,
+                fixed_provider,
+                seed=pair_seed,
+                discussion_rounds=15,
+                disclosure_first=config.disclosure_first,
+            )
+            scored = score_hiddenbench_run(fixed_raw)
+            fingerprint = assignment_fingerprint(scored)
+            records[condition] = StudyRunRecord(
+                key=StudyKey(
+                    task_id=task.id,
+                    condition=condition,
+                    repetition=repetition,
+                ),
+                pair_seed=pair_seed,
+                assignment_fingerprint=fingerprint,
+                run=scored,
+            )
+            baseline_run_id = scored.run_id
+        else:
+            if baseline_run_id is None:
+                raise RuntimeError(
+                    "dynamic condition requires a fixed baseline run"
+                )
+            dynamic_result = await run_hiddenbench_dynamic_task(
+                task,
+                dynamic_provider,
+                seed=pair_seed,
+                assignment=records[config.conditions[0]].run.assignment,
+                baseline_run_id=baseline_run_id,
+                config=config,  # type: ignore[arg-type]
+                disclosure_first=config.disclosure_first,
+            )
+            fingerprint = assignment_fingerprint(dynamic_result.run)
+            records[condition] = StudyRunRecord(
+                key=StudyKey(
+                    task_id=task.id,
+                    condition=condition,
+                    repetition=repetition,
+                ),
+                pair_seed=pair_seed,
+                assignment_fingerprint=fingerprint,
+                run=dynamic_result.run,
+                baseline_run_id=dynamic_result.baseline_run_id,
+                selection_events=dynamic_result.selection_events,
+            )
+        assignment_fingerprints.add(fingerprint)
 
-    dynamic_result = await run_hiddenbench_dynamic_task(
-        task,
-        dynamic_provider,
-        seed=pair_seed,
-        assignment=fixed_run.assignment,
-        baseline_run_id=fixed_run.run_id,
-        config=config,  # type: ignore[arg-type]
-    )
-    dynamic_fingerprint = assignment_fingerprint(dynamic_result.run)
-    if dynamic_fingerprint != fingerprint:
-        raise RuntimeError(
-            "fixed and dynamic assignment fingerprints differ"
-        )
-    dynamic = StudyRunRecord(
-        key=StudyKey(
-            task_id=task.id,
-            condition="dynamic",
-            repetition=repetition,
-        ),
-        pair_seed=pair_seed,
-        assignment_fingerprint=dynamic_fingerprint,
-        run=dynamic_result.run,
-        baseline_run_id=dynamic_result.baseline_run_id,
-        selection_events=dynamic_result.selection_events,
-    )
-
-    for record in (fixed, dynamic):
+    if len(assignment_fingerprints) != 1:
+        raise RuntimeError("paired conditions differ in assignment")
+    for record in records.values():
         if len(record.run.discussion_messages) != config.total_speeches:
             raise RuntimeError("study run violated the speech budget")
-    return fixed, dynamic
+    return tuple(records[condition] for condition in config.conditions)
 
 
 def _validate_complete_pairs(
     records: tuple[StudyRunRecord, ...],
+    conditions: set[str] | None = None,
 ) -> None:
+    required_conditions = conditions or {"fixed", "dynamic"}
     conditions_by_pair: dict[PairKey, set[str]] = {}
     seen: set[str] = set()
     by_pair: dict[PairKey, list[StudyRunRecord]] = {}
@@ -137,8 +150,8 @@ def _validate_complete_pairs(
             record.key.condition
         )
         by_pair.setdefault(pair, []).append(record)
-    for pair, conditions in conditions_by_pair.items():
-        if conditions != {"fixed", "dynamic"}:
+    for pair, pair_conditions in conditions_by_pair.items():
+        if pair_conditions != required_conditions:
             raise ValueError(
                 f"partial pair {_pair_value(pair)} in study output"
             )
@@ -160,6 +173,7 @@ def _validate_complete_pairs(
 
 def read_completed_study_records(
     output: Path,
+    conditions: set[str] | None = None,
 ) -> tuple[StudyRunRecord, ...]:
     if not output.exists():
         return ()
@@ -177,7 +191,7 @@ def read_completed_study_records(
                 f"invalid study record at line {line_number}: {exc}"
             ) from exc
     result = tuple(records)
-    _validate_complete_pairs(result)
+    _validate_complete_pairs(result, conditions=conditions)
     return result
 
 
@@ -236,7 +250,10 @@ async def run_stability_study(
             f"study output already exists: {output}"
         )
     existing = (
-        read_completed_study_records(output)
+        read_completed_study_records(
+            output,
+            conditions=set(config.conditions),
+        )
         if resume
         else ()
     )

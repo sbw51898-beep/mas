@@ -1048,7 +1048,10 @@ async def _run_hiddenbench_stability(
         resume=resume,
         requested_pairs=requested_pairs,
     )
-    records = read_completed_study_records(output)
+    records = read_completed_study_records(
+        output,
+        conditions=set(config.conditions),
+    )
     if smoke:
         allowed = {
             StudyKey(

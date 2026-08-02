@@ -18,7 +18,7 @@ from mas_experiment.hiddenbench_dynamic_domain import (
 )
 
 
-StudyCondition = Literal["fixed", "dynamic"]
+StudyCondition = Literal["fixed", "dynamic", "fixed-disc", "dynamic-disc"]
 DynamicProviderSettings = DynamicProviderConfig
 SelectorWeights = DynamicSelectorConfig
 
@@ -26,7 +26,10 @@ SelectorWeights = DynamicSelectorConfig
 class StabilityStudyConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    configuration_version: Literal["hiddenbench-stability-v1"]
+    configuration_version: Literal[
+        "hiddenbench-stability-v1",
+        "hiddenbench-stability-v2",
+    ]
     task_ids: tuple[int, ...]
     conditions: tuple[StudyCondition, ...]
     repetitions: int = Field(gt=0)
@@ -45,13 +48,30 @@ class StabilityStudyConfig(BaseModel):
     provider: DynamicProviderSettings
     selector: SelectorWeights
     frozen_baseline_commit: str = Field(min_length=7)
+    disclosure_first: bool = False
 
     @model_validator(mode="after")
     def validate_frozen_protocol(self) -> StabilityStudyConfig:
         if self.task_ids != (1, 5, 7, 25):
             raise ValueError("task_ids must be exactly 1, 5, 7, 25")
-        if self.conditions != ("fixed", "dynamic"):
-            raise ValueError("conditions must be exactly fixed, dynamic")
+        allowed_condition_sets = {
+            "hiddenbench-stability-v1": (("fixed", "dynamic"),),
+            "hiddenbench-stability-v2": (
+                ("fixed-disc", "dynamic-disc"),
+            ),
+        }
+        allowed = allowed_condition_sets[self.configuration_version]
+        if self.conditions not in allowed:
+            raise ValueError(
+                f"{self.configuration_version} requires conditions "
+                f"{allowed[0]}, got {self.conditions}"
+            )
+        if self.disclosure_first != any(
+            condition.endswith("-disc") for condition in self.conditions
+        ):
+            raise ValueError(
+                "disclosure_first must match the -disc conditions"
+            )
         if self.repetitions != 10:
             raise ValueError("repetitions must be exactly 10")
         if self.total_speeches != len(AGENT_IDS) * self.speeches_per_agent:
@@ -92,7 +112,7 @@ class StudyRunRecord(BaseModel):
             raise ValueError("study key task must match run task")
         if self.run.assignment.seed != self.pair_seed:
             raise ValueError("pair seed must match run assignment seed")
-        if self.key.condition == "fixed":
+        if self.key.condition in ("fixed", "fixed-disc"):
             if self.baseline_run_id is not None or self.selection_events:
                 raise ValueError(
                     "fixed record cannot contain dynamic metadata"

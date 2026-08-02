@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from difflib import SequenceMatcher
 from typing import Any
 
@@ -47,6 +48,51 @@ def _expected_facts(run: HiddenBenchRun) -> dict[str, tuple[str, str]]:
         f"private-fact:{owner_id}": (owner_id, fact)
         for owner_id, fact in run.assignment.private_information.items()
     }
+
+
+def _tolerant_json_loads(text: str) -> dict[str, Any]:
+    """Parse an LLM JSON object, tolerating fences and stray prose."""
+    candidate = text
+    if "```" in candidate:
+        candidate = re.sub(r"```(?:json)?", "", candidate, flags=re.IGNORECASE)
+    start = candidate.find("{")
+    end = candidate.rfind("}")
+    if start < 0 or end < start:
+        raise ValueError("model response does not contain a JSON object")
+    candidate = candidate[start : end + 1]
+    try:
+        payload = json.loads(candidate)
+    except json.JSONDecodeError:
+        escaped = _escape_raw_control_characters(candidate)
+        payload = json.loads(escaped)
+    if not isinstance(payload, dict):
+        raise ValueError("model response JSON must be an object")
+    return payload
+
+
+def _escape_raw_control_characters(text: str) -> str:
+    """Escape raw control characters that sit inside JSON string values."""
+    out: list[str] = []
+    in_string = False
+    escaped = False
+    for char in text:
+        if escaped:
+            out.append(char)
+            escaped = False
+            continue
+        if char == "\\":
+            out.append(char)
+            escaped = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            out.append(char)
+            continue
+        if in_string and char in "\n\r\t":
+            out.append({"\n": "\\n", "\r": "\\r", "\t": "\\t"}[char])
+            continue
+        out.append(char)
+    return "".join(out)
 
 
 def build_disclosure_audit_prompt(run: HiddenBenchRun) -> str:
@@ -166,7 +212,7 @@ def parse_disclosure_audit(
     provider_metadata: dict[str, Any] | None = None,
 ) -> DisclosureAudit:
     try:
-        payload = json.loads(text)
+        payload = _tolerant_json_loads(text)
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid disclosure audit JSON: {exc}") from exc
     if not isinstance(payload, dict) or set(payload) != {"facts"}:
@@ -297,68 +343,64 @@ async def audit_run_disclosure(
 ) -> DisclosureAudit:
     user_prompt = build_disclosure_audit_prompt(run)
     metadata: list[dict[str, Any]] = []
-    completion = await provider.complete(
-        agent_id="disclosure-auditor",
-        system_prompt=(
-            "You are a strict evidence auditor. Return JSON only and never "
-            "invent evidence."
-        ),
-        user_prompt=user_prompt,
-        seed=seed,
-        json_response=True,
-    )
-    metadata.append(completion.provider_metadata)
-    try:
-        return parse_disclosure_audit(
-            run,
-            completion.text,
-            study_key=study_key,
-            judge_model=judge_model,
-            judge_prompt_version=judge_prompt_version,
-            provider_metadata=_aggregate_metadata(metadata),
-        )
-    except (ValueError, TypeError) as first_error:
-        repair = await provider.complete(
-            agent_id="disclosure-auditor",
-            system_prompt=(
-                "Repair the prior audit. Return strict JSON only and cite "
-                "only owner-authored evidence from the supplied transcript."
-            ),
-            user_prompt=(
+    last_error: ValueError | None = None
+    for attempt in range(3):
+        if attempt == 0:
+            attempt_prompt = user_prompt
+            system_prompt = (
+                "You are a strict evidence auditor. Return JSON only and "
+                "never invent evidence."
+            )
+            attempt_seed = seed
+        else:
+            attempt_prompt = (
                 f"{user_prompt}\n\n"
-                "The previous response was invalid for this reason:\n"
-                f"{first_error}\n\n"
-                "Return a corrected complete JSON object."
-            ),
-            seed=seed + 1,
+                "The previous response was not valid JSON and was rejected. "
+                "Keep every reason under 80 characters, escape all quotes and "
+                "newlines inside strings, and return only the complete JSON "
+                "object with one item per fact."
+            )
+            system_prompt = (
+                "You are a strict evidence auditor. Return JSON only and "
+                "never invent evidence."
+            )
+            attempt_seed = seed + attempt
+        completion = await provider.complete(
+            agent_id="disclosure-auditor",
+            system_prompt=system_prompt,
+            user_prompt=attempt_prompt,
+            seed=attempt_seed,
             json_response=True,
         )
-        metadata.append(repair.provider_metadata)
+        metadata.append(completion.provider_metadata)
         aggregate = _aggregate_metadata(metadata)
         try:
             return parse_disclosure_audit(
                 run,
-                repair.text,
+                completion.text,
                 study_key=study_key,
                 judge_model=judge_model,
                 judge_prompt_version=judge_prompt_version,
                 provider_metadata=aggregate,
             )
-        except ValueError as second_error:
-            if "exact substring" not in str(second_error):
-                raise
-            reanchored, count = _reanchor_evidence_quotes(
-                run,
-                repair.text,
-            )
-            if count == 0:
-                raise
-            aggregate["local_evidence_reanchors"] = count
-            return parse_disclosure_audit(
-                run,
-                reanchored,
-                study_key=study_key,
-                judge_model=judge_model,
-                judge_prompt_version=judge_prompt_version,
-                provider_metadata=aggregate,
-            )
+        except ValueError as error:
+            last_error = error
+            if "exact substring" in str(error):
+                reanchored, count = _reanchor_evidence_quotes(
+                    run,
+                    completion.text,
+                )
+                if count == 0:
+                    raise
+                aggregate["local_evidence_reanchors"] = count
+                return parse_disclosure_audit(
+                    run,
+                    reanchored,
+                    study_key=study_key,
+                    judge_model=judge_model,
+                    judge_prompt_version=judge_prompt_version,
+                    provider_metadata=aggregate,
+                )
+    raise ValueError(
+        "audit JSON invalid after three attempts"
+    ) from last_error

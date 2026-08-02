@@ -212,6 +212,7 @@ def _configuration_fingerprint(
     seed: int,
     discussion_rounds: int,
     assignment: Any,
+    disclosure_first: bool = False,
 ) -> str:
     payload = {
         "task": task.model_dump(mode="json"),
@@ -220,6 +221,7 @@ def _configuration_fingerprint(
         "assignment": assignment.model_dump(mode="json"),
         "agent_ids": AGENT_IDS,
         "prompt_version": PROMPT_VERSION,
+        "disclosure_first": disclosure_first,
     }
     serialized = json.dumps(
         payload,
@@ -256,6 +258,7 @@ async def run_hiddenbench_task(
     *,
     seed: int,
     discussion_rounds: int = 15,
+    disclosure_first: bool = False,
 ) -> HiddenBenchRawRun:
     if discussion_rounds != 15:
         raise ValueError(
@@ -299,7 +302,10 @@ async def run_hiddenbench_task(
         for agent_id in AGENT_IDS:
             turn_index = len(messages)
             visible_messages = tuple(messages)
-            user_prompt = build_discussion_user_prompt(visible_messages)
+            user_prompt = build_discussion_user_prompt(
+                visible_messages,
+                disclosure_first=disclosure_first and round_index == 1,
+            )
             try:
                 completion = await provider.complete(
                     agent_id=agent_id,
@@ -398,6 +404,7 @@ async def run_hiddenbench_task(
         seed=seed,
         discussion_rounds=discussion_rounds,
         assignment=assignment,
+        disclosure_first=disclosure_first,
     )
     all_items = (
         *pre_votes,

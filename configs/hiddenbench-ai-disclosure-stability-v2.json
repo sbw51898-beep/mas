@@ -1,0 +1,40 @@
+{
+  "configuration_version": "hiddenbench-stability-v2",
+  "task_ids": [
+    1,
+    5,
+    7,
+    25
+  ],
+  "conditions": [
+    "fixed-disc",
+    "dynamic-disc"
+  ],
+  "repetitions": 10,
+  "base_seed": 20260729,
+  "dataset_sha256": "2815afffca4e470d1dfbc81e625160447df1109ce371968181c9e1e6b90443a3",
+  "dataset_source": "HiddenBench official task bundle retained for the 2026-07-28 screening study",
+  "prompt_version": "hiddenbench-appendix-a4-v1",
+  "total_speeches": 60,
+  "speeches_per_agent": 15,
+  "selector_llm_calls": 0,
+  "experiment_workers": 8,
+  "judge_workers": 16,
+  "judge_model": "deepseek-v4-flash",
+  "judge_prompt_version": "hiddenbench-disclosure-audit-v1",
+  "evidence_rule_version": "lexical-semantic-v2",
+  "provider": {
+    "model": "deepseek-v4-flash",
+    "temperature": 0,
+    "thinking": "disabled"
+  },
+  "selector": {
+    "disagreement": 0.3,
+    "undisclosed": 0.3,
+    "related_discussion": 0.15,
+    "response_due": 0.15,
+    "waiting": 0.1
+  },
+  "frozen_baseline_commit": "2b9b0a9",
+  "disclosure_first": true
+}

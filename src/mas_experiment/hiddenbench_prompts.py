@@ -25,6 +25,12 @@ _LATER_SPEAKER_TEMPLATE = """Previous messages from other people:
 {messages}
 It’s your turn to speak."""
 
+_DISCLOSURE_FIRST_PROMPT = (
+    "Before discussing the decision, first state the decision-relevant "
+    "facts you personally received that the group may not have. Keep it "
+    "to one or two sentences, then give your current view."
+)
+
 
 def _format_information(information: tuple[str, ...]) -> str:
     return "\n".join(f"- {item}" for item in information)
@@ -87,7 +93,11 @@ def build_full_profile_system_prompt(
 
 def build_discussion_user_prompt(
     visible_messages: tuple[HiddenBenchMessage, ...],
+    *,
+    disclosure_first: bool = False,
 ) -> str:
+    if disclosure_first:
+        return _DISCLOSURE_FIRST_PROMPT
     if not visible_messages:
         return _FIRST_SPEAKER_PROMPT
     return _LATER_SPEAKER_TEMPLATE.format(
