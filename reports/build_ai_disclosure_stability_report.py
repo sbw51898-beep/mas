@@ -37,6 +37,10 @@ BLIND_REVIEW_V1_SUMMARY = (
     ARTIFACTS
     / "hiddenbench-stability-20260729.blind-review.v1.summary.json"
 )
+BLIND_REVIEW_GPT_SUMMARY = (
+    ARTIFACTS
+    / "hiddenbench-stability-20260729.blind-review.gpt.summary.json"
+)
 GATE_JSON = ARTIFACTS / "hiddenbench-stability-20260729.gate.json"
 MANIFEST_JSON = ARTIFACTS / "hiddenbench-stability-20260729.manifest.json"
 
@@ -423,6 +427,9 @@ def _analyze() -> dict:
     blind_review_v1 = json.loads(
         BLIND_REVIEW_V1_SUMMARY.read_text(encoding="utf-8")
     )
+    blind_review_gpt = json.loads(
+        BLIND_REVIEW_GPT_SUMMARY.read_text(encoding="utf-8")
+    )
     distribution = Counter(disclosure_values)
     fixed_wins_total = sum(item["fixed_wins"] for item in paired.values())
     dynamic_wins_total = sum(item["dynamic_wins"] for item in paired.values())
@@ -446,6 +453,7 @@ def _analyze() -> dict:
         "disagreement_count": len(disagreements),
         "blind_review": blind_review,
         "blind_review_v1": blind_review_v1,
+        "blind_review_gpt": blind_review_gpt,
         "audit_requests": audit_requests,
         "repair_requests": repair_requests,
         "public_messages": public_messages,
@@ -1245,6 +1253,60 @@ def _add_ai_audit_method(document: DocumentType, analysis: dict) -> None:
         "字节数与SHA-256已写入"
         "artifacts/hiddenbench-stability-20260729.blind-review.manifest.json。"
     )
+    document.add_heading("5. 独立模型盲审（Codex，2026-08-02）", level=2)
+    gpt = analysis["blind_review_gpt"]
+    gpt_metrics = gpt["metrics"]
+    document.add_paragraph(
+        "为检验“同模型自审”的偏差，由独立评审模型（Codex，与DeepSeek不同源）"
+        "对同一144项盲化队列重新逐项判定。评审只看到blind ID、私有信息包和"
+        "拥有者发言，全程不接触AI标签、规则标签、题号与机制；判定规则与审计"
+        "prompt的六条规则一致，且程序校验每条“已披露”都带拥有者消息ID和"
+        "原文引句。评审结果："
+    )
+    _add_table(
+        document,
+        ["评审者", "一致率", "AI精确率", "AI召回率", "修订披露率"],
+        [
+            [
+                "DeepSeek自审（冻结口径v2）",
+                _pct(metrics["ai_human_agreement"], 1),
+                _pct(metrics["ai_precision"], 1),
+                _pct(metrics["ai_recall"], 1),
+                _pct(metrics["revised_disclosure_rate"], 1),
+            ],
+            [
+                "独立模型盲审（Codex）",
+                _pct(gpt_metrics["ai_human_agreement"], 1),
+                _pct(gpt_metrics["ai_precision"], 1),
+                _pct(gpt_metrics["ai_recall"], 1),
+                _pct(gpt_metrics["revised_disclosure_rate"], 1),
+            ],
+        ],
+        [2850, 1627, 1627, 1627, 1629],
+        font_size=8.8,
+    )
+    document.add_paragraph(
+        "两组指标按同一加权方法（84项分歧权重1，一致层按AI标签×任务×机制"
+        "分层赋权）还原到全部320项。独立盲审的144项中73项判“披露”、71项判"
+        "“未披露”，未加权与AI标签一致98项。"
+    )
+    _add_callout(
+        document,
+        "同模型偏差的证据",
+        "DeepSeek自审的一致率93.5%、召回率94.8%，而独立模型盲审只有79.5%和"
+        "66.7%：AI审计模型漏报了约三分之一它自己会判为已披露的案例，主要集中"
+        "在RFP字母值题——独立评审认可“拥有者说出了信息包中的具体值”即算披露，"
+        "而AI审计常要求复述整个信息包。修订披露率因此从36.4%上调至55.7%。"
+        "这证明披露率对评审者高度敏感，任何单一评审者（含本报告的独立模型）"
+        "都不能自称金标准，最终仍需要真人仲裁。",
+    )
+    document.add_paragraph(
+        "独立盲审的逐项判断、带证据的签核表（已填版本）和摘要分别保存为"
+        "hiddenbench-stability-20260729.blind-review.gpt.judgments.jsonl、"
+        "blind-review.gpt.queue.csv 和 blind-review.gpt.summary.json；"
+        "评审脚本为 reports/run_codex_blind_review.py，可复现。"
+    )
+    document.add_page_break()
 
 
 def _add_results(
