@@ -1290,6 +1290,15 @@ def _add_ai_audit_method(document: DocumentType, analysis: dict) -> None:
         "分层赋权）还原到全部320项。独立盲审的144项中73项判“披露”、71项判"
         "“未披露”，未加权与AI标签一致98项。"
     )
+    document.add_heading("独立盲审的操作化判定标准", level=3)
+    for rule in [
+        "拥有者消息中出现信息包内的具体内容（如“Cape 满足 (a)、(c)”、“步行道已关闭”、“与教务长存在紧张关系”），且与包内内容忠实一致，即算披露该信息包。",
+        "只给出泛泛评价（“最佳选择”“有明显问题”“存在红旗”）而不说出具体内容，不算披露。",
+        "消息主张的内容不在该拥有者自己的信息包内（转述他人信息或自行编造，如“Franklin 满足 (d)–(h)”而其包内只有 (a)(c)），不算披露自己的信息包。",
+        "与信息包直接矛盾（如包内为“Franklin 不满足 (a)”，消息称“Franklin 满足全部技术要求”）不算披露。",
+        "多行信息包（如 RFP 字母表）只需说出其中决策相关的忠实部分即可算披露；部分披露的判定与审计 prompt 规则 3 一致。",
+    ]:
+        document.add_paragraph(f"• {rule}")
     _add_callout(
         document,
         "同模型偏差的证据",
@@ -1305,6 +1314,14 @@ def _add_ai_audit_method(document: DocumentType, analysis: dict) -> None:
         "hiddenbench-stability-20260729.blind-review.gpt.judgments.jsonl、"
         "blind-review.gpt.queue.csv 和 blind-review.gpt.summary.json；"
         "评审脚本为 reports/run_codex_blind_review.py，可复现。"
+    )
+    _add_callout(
+        document,
+        "覆盖范围",
+        "本盲审只覆盖 2026-07-29 数据集的 320 项判断（144 项抽样）。"
+        "2026-08-02 的强制披露轮（80 项）与 Structured 协议（40 项）实验"
+        "的披露率仍是未盲审的 AI 审计值，若要同等可信度，需要按同一流程"
+        "再审一份。",
     )
     document.add_page_break()
 
