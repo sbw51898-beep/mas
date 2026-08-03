@@ -25,6 +25,8 @@ StudyCondition = Literal[
     "dynamic-disc",
     "structured",
     "fixed-12",
+    "fixed-4",
+    "fixed-8",
 ]
 DynamicProviderSettings = DynamicProviderConfig
 SelectorWeights = DynamicSelectorConfig

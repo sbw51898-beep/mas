@@ -1312,7 +1312,7 @@ async def _run_hiddenbench_structured(
     return paths, len(records), formal_requests + audit_requests
 
 
-async def _audit_contrast_fixed12(
+async def _audit_contrast_fixed_conditions(
     *,
     records: tuple[ContrastRunRecord, ...],
     config: ContrastStudyConfig,
@@ -1324,7 +1324,7 @@ async def _audit_contrast_fixed12(
     fixed12 = tuple(
         record
         for record in records
-        if record.key.condition == "fixed-12"
+        if record.key.condition in ("fixed-4", "fixed-8", "fixed-12")
     )
     existing = (
         _read_disclosure_audits(audit_path)
@@ -1358,7 +1358,7 @@ async def _audit_contrast_fixed12(
                 ),
                 study_key=StudyKey(
                     task_id=record.key.task_id,
-                    condition="fixed-12",
+                    condition=record.key.condition,
                     repetition=record.key.repetition,
                 ),
                 judge_model=(
@@ -1428,7 +1428,7 @@ async def _run_hiddenbench_contrast(
     if skip_ai_judge:
         return None, len(records), formal_requests
     audit_path = output.with_suffix(".ai-disclosure.jsonl")
-    audits = await _audit_contrast_fixed12(
+    audits = await _audit_contrast_fixed_conditions(
         records=records,
         config=config,
         audit_path=audit_path,

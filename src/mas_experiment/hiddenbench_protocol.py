@@ -260,9 +260,10 @@ async def run_hiddenbench_task(
     discussion_rounds: int = 15,
     disclosure_first: bool = False,
 ) -> HiddenBenchRawRun:
-    if discussion_rounds not in (3, 15):
+    if discussion_rounds not in (3, 4, 8, 15):
         raise ValueError(
-            "discussion_rounds must be 3 (12 messages) or 15 (60 messages)"
+            "discussion_rounds must be 3, 4, 8 or 15 "
+            "(12/16/32/60 messages)"
         )
     assignment = assign_hidden_information(task, seed=seed)
     hidden_system_prompts = {

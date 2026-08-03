@@ -259,14 +259,35 @@ def build_contrast_gate(
                 and message.round_index == index + 1
                 for index, message in enumerate(messages)
             )
-        else:
-            structure_ok &= len(messages) == 12
+        elif condition in ("fixed-4", "fixed-8", "fixed-12"):
+            fixed_message_counts = {
+                "fixed-4": 16,
+                "fixed-8": 32,
+                "fixed-12": 12,
+            }
+            fixed_round_counts = {
+                "fixed-4": 4,
+                "fixed-8": 8,
+                "fixed-12": 3,
+            }
+            structure_ok &= (
+                len(messages) == fixed_message_counts[condition]
+            )
             structure_ok &= Counter(
                 message.agent_id for message in messages
-            ) == {agent_id: 3 for agent_id in AGENT_IDS}
+            ) == {
+                agent_id: fixed_round_counts[condition]
+                for agent_id in AGENT_IDS
+            }
             structure_ok &= [
                 message.round_index for message in messages
-            ] == [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+            ] == [
+                round_index
+                for round_index in range(1, fixed_round_counts[condition] + 1)
+                for _ in AGENT_IDS
+            ]
+        else:
+            structure_ok &= False
         structure_ok &= all(
             message.visible_message_ids
             == tuple(
@@ -275,7 +296,7 @@ def build_contrast_gate(
             )
             for index, message in enumerate(messages)
         )
-        if condition == "fixed-12":
+        if condition in ("fixed-4", "fixed-8", "fixed-12"):
             structure_ok &= (
                 len(run.hidden_pre_votes) == 4
                 and len(run.hidden_post_votes) == 4
@@ -323,7 +344,11 @@ def build_contrast_gate(
     audit_keys = tuple(audit.study_key.value for audit in audits)
     evidence_ok = True
     for audit in audits:
-        if audit.study_key.condition != "fixed-12":
+        if audit.study_key.condition not in (
+            "fixed-4",
+            "fixed-8",
+            "fixed-12",
+        ):
             evidence_ok = False
             continue
         record = records_by_key.get(audit.study_key.value)
@@ -335,14 +360,14 @@ def build_contrast_gate(
         except (ValueError, TypeError):
             evidence_ok = False
 
-    fixed_12_keys = {
+    fixed_keys = {
         key.value
         for key in expected_study_keys(config)
-        if key.condition == "fixed-12"
+        if key.condition in ("fixed-4", "fixed-8", "fixed-12")
     }
     audit_complete = (
-        set(audit_keys) == fixed_12_keys
-        and len(audit_keys) == len(fixed_12_keys)
+        set(audit_keys) == fixed_keys
+        and len(audit_keys) == len(fixed_keys)
     )
     checks = {
         "complete_run_matrix": (
@@ -350,7 +375,7 @@ def build_contrast_gate(
             and set(run_keys) == set(expected)
         ),
         "unique_run_keys": len(set(run_keys)) == len(run_keys),
-        "audit_coverage_fixed12": audit_complete,
+        "audit_coverage_fixed_conditions": audit_complete,
         "valid_ai_evidence": evidence_ok,
         "task_and_dataset_hashes": (
             dataset_ok

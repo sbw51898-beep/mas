@@ -46,7 +46,16 @@ class ContrastStudyConfig(BaseModel):
     base_seed: int
     dataset_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     prompt_version: Literal[CONTRAST_PROMPT_VERSION]
-    conditions: tuple[Literal["single-direct", "single-reflect", "fixed-12"], ...]
+    conditions: tuple[
+        Literal[
+            "single-direct",
+            "single-reflect",
+            "fixed-12",
+            "fixed-4",
+            "fixed-8",
+        ],
+        ...
+    ]
     reflect_rounds: int = Field(gt=0)
     fixed_discussion_rounds: int = Field(ge=1)
     experiment_workers: int = Field(ge=1, le=16)
@@ -73,7 +82,13 @@ class ContrastStudyKey(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     task_id: int
-    condition: Literal["single-direct", "single-reflect", "fixed-12"]
+    condition: Literal[
+        "single-direct",
+        "single-reflect",
+        "fixed-12",
+        "fixed-4",
+        "fixed-8",
+    ]
     repetition: int = Field(ge=0)
 
     @property
@@ -290,12 +305,17 @@ async def run_contrast_condition(
     assignment: HiddenBenchAssignment | None,
     config: ContrastStudyConfig,
 ) -> HiddenBenchRun:
-    if condition == "fixed-12":
+    fixed_rounds = {
+        "fixed-4": 4,
+        "fixed-8": 8,
+        "fixed-12": 3,
+    }
+    if condition in fixed_rounds:
         raw = await run_hiddenbench_task(
             task,
             provider,
             seed=seed,
-            discussion_rounds=config.fixed_discussion_rounds,
+            discussion_rounds=fixed_rounds[condition],
             disclosure_first=False,
         )
         return score_hiddenbench_run(raw)

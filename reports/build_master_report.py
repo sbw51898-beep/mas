@@ -34,6 +34,8 @@ DATA_SOURCES = {
     "single-direct": ARTIFACTS / "hiddenbench-contrast-20260803.jsonl",
     "single-reflect": ARTIFACTS / "hiddenbench-contrast-20260803.jsonl",
     "fixed-12": ARTIFACTS / "hiddenbench-contrast-20260803.jsonl",
+    "fixed-4": ARTIFACTS / "hiddenbench-earlystop-20260803.jsonl",
+    "fixed-8": ARTIFACTS / "hiddenbench-earlystop-20260803.jsonl",
 }
 AUDIT_SOURCES = {
     "fixed": ARTIFACTS / "hiddenbench-stability-20260729.ai-disclosure.jsonl",
@@ -41,6 +43,8 @@ AUDIT_SOURCES = {
     "fixed-disc": ARTIFACTS / "hiddenbench-governance-20260802.ai-disclosure.jsonl",
     "dynamic-disc": ARTIFACTS / "hiddenbench-governance-20260802.ai-disclosure.jsonl",
     "structured": ARTIFACTS / "hiddenbench-structured-20260802.ai-disclosure.jsonl",
+    "fixed-4": ARTIFACTS / "hiddenbench-earlystop-20260803.ai-disclosure.jsonl",
+    "fixed-8": ARTIFACTS / "hiddenbench-earlystop-20260803.ai-disclosure.jsonl",
 }
 GPT_SUMMARY = (
     ARTIFACTS / "hiddenbench-stability-20260729.blind-review.gpt.summary.json"
@@ -68,6 +72,8 @@ CONDITIONS = (
     "fixed-12",
     "single-direct",
     "single-reflect",
+    "fixed-4",
+    "fixed-8",
 )
 CONDITION_LABEL = {
     "fixed": "固定轮转60条",
@@ -78,6 +84,8 @@ CONDITION_LABEL = {
     "fixed-12": "固定轮转12条",
     "single-direct": "单智能体直接作答",
     "single-reflect": "单智能体+15轮反思",
+    "fixed-4": "固定轮转16条（提前停止）",
+    "fixed-8": "固定轮转32条（提前停止）",
 }
 TASKS = {
     1: "撤离路线",
@@ -251,8 +259,13 @@ def _add_requirements(document: DocumentType) -> None:
                 "144 项盲化队列由独立模型完成逐项复核（Codex，非 DeepSeek）",
                 "一致率 79.5%、AI 精确率 95.1%、召回率 66.7%、修订披露率 55.7%",
             ),
+            (
+                "既然前几轮已达成一致，为何还要往下（提前停止）",
+                "固定轮转分别截断为 16/32/60 条消息对照",
+                "三者结果完全相同（各 20/40）：共识形成后继续发言无收益，可提前停止省 token",
+            ),
         ],
-        [2300, 3400, 3660],
+        [2300, 3300, 3760],
         font_size=8.0,
     )
     _add_callout(
@@ -383,6 +396,13 @@ def _add_analysis(document: DocumentType) -> None:
         "盲审一致率 79.5%、修订披露率 55.7%。AI 审计存在系统性漏报（召回率 "
         "66.7%），任何单一评审者都不能自称金标准，最终需要真人仲裁。"
     )
+    document.add_heading("6. 提前停止是安全的", level=2)
+    document.add_paragraph(
+        "固定轮转截断到 16 条、32 条与完整 60 条的结果完全一致（均为 20/40，"
+        "ID1/ID25 全对、ID5/ID7 全错）。共识在前几轮就已固化：答得对的题 4 轮"
+        "就够，答错的题继续 44 条也不会翻盘。因此老师问的“达成一致为何还要"
+        "往下”的答案是：不需要，可以提前停止，省下约 2/3 的发言预算。"
+    )
     document.add_page_break()
 
 
@@ -393,7 +413,7 @@ def _add_next(document: DocumentType) -> None:
         "对 ID5/ID7 做逐轮证据使用审计（已披露信息是否被正确引用/错误否定），定位整合失效的具体环节。",
         "真人填写 144 项盲审签核表，给出最终人工一致率、精确率、召回率与修订披露率。",
         "MAF 五因子权重做敏感性分析/消融，否则不能声称动态机制优于固定轮转。",
-        "提前停止对照：观察共识稳定后继续发言是否会打破错误共识（老师此前问过“达成一致为何还要往下”）。",
+        "把提前停止规则接入正式协议（如连续两轮全体一致即停止），验证节省预算的同时结果不变。",
     ]:
         document.add_paragraph(f"{step}")
     _add_callout(
