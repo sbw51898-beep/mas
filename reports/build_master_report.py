@@ -425,6 +425,56 @@ def _add_next(document: DocumentType) -> None:
     )
 
 
+def _add_appendix(document: DocumentType) -> None:
+    document.add_heading("附录：盲审签核表与复核流程", level=1)
+    document.add_paragraph(
+        "144 项盲化签核表有三份配套文件，对应三种使用状态："
+    )
+    _add_table(
+        document,
+        ["文件", "状态", "用途"],
+        [
+            (
+                "盲审签核表_144项_2026-08-03.xlsx",
+                "空白版",
+                "给真人填写；含 6 条判定规则说明和 是/否 下拉；不含 AI/规则标签，保持盲审",
+            ),
+            (
+                "盲审签核表_144项_2026-08-03_已填版.xlsx",
+                "已填版（Codex 独立评审）",
+                "73 项披露/71 项未披露，每条带证据消息 ID 与原文引句，逐条注明评审者",
+            ),
+            (
+                "reports/xlsx_to_queue_csv.py",
+                "回算工具",
+                "把填好的 Excel 转回签核 CSV，供 run_hiddenbench_blind_review.py "
+                "--from-human-queue 重算人工一致率、精确率、召回率与修订披露率",
+            ),
+        ],
+        [3000, 2300, 4060],
+        font_size=8.2,
+    )
+    document.add_heading("已填版指标（独立模型评审，非人工金标准）", level=2)
+    _add_table(
+        document,
+        ["指标", "DeepSeek 自审", "独立模型盲审（已填版）"],
+        [
+            ("一致率", "93.5%", "79.5%"),
+            ("AI 精确率", "88.3%", "95.1%"),
+            ("AI 召回率", "94.8%", "66.7%"),
+            ("修订披露率", "36.4%", "55.7%"),
+        ],
+        [3000, 3180, 3180],
+        font_size=9.0,
+    )
+    document.add_paragraph(
+        "从已填 Excel 回算的加权指标与原始判断完全一致，转换链路已验证。"
+        "若需人工金标准：真人拿已填版逐条复核（改判直接在表上修改）→ 回传 → "
+        "运行转换脚本与 --from-human-queue → 得到最终人工指标。已填版可作为"
+        "复核基准，但不可冒充人工填写。"
+    )
+
+
 def _build_document(summaries: dict) -> DocumentType:
     document = Document()
     _configure_styles(document)
@@ -435,6 +485,7 @@ def _build_document(summaries: dict) -> DocumentType:
     _add_results(document, summaries)
     _add_analysis(document)
     _add_next(document)
+    _add_appendix(document)
     return document
 
 
