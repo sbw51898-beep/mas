@@ -53,6 +53,14 @@ from mas_experiment.hiddenbench_confirmatory_study import (
     read_confirmatory_records,
     run_confirmatory_study,
 )
+from mas_experiment.hiddenbench_official_reveal_gate import (
+    build_official_reveal_gate,
+)
+from mas_experiment.hiddenbench_official_reveal_supplement import (
+    load_official_reveal_config,
+    read_official_reveal_records,
+    run_official_reveal_supplement,
+)
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS as HIDDENBENCH_AGENT_IDS,
     HiddenBenchRun,
@@ -2341,6 +2349,203 @@ def gate_hiddenbench_confirmatory_command(
         raise typer.BadParameter(f"confirmatory gate failed: {failed}")
     typer.echo(
         f"Confirmatory gate passed; API calls=0; gate={gate_path}"
+    )
+
+
+async def _run_official_reveal_supplement_pipeline(
+    *,
+    config_path: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> tuple[int, Path]:
+    study = load_official_reveal_config(config_path)
+    tasks = load_hiddenbench_tasks(
+        dataset,
+        expected_sha256=study.dataset_sha256,
+    )
+    validate_confirmatory_tasks(tasks)
+    if offline:
+        provider_factory = StabilityOfflineProvider
+    else:
+        require_clean_confirmatory_state(repo, study.frozen_code_commit)
+        settings = DeepSeekSettings.from_env()
+
+        def provider_factory() -> MAFPromptProvider:
+            return MAFPromptProvider(settings)
+
+    execution = await run_official_reveal_supplement(
+        tasks=tasks,
+        config=study,
+        provider_factory=provider_factory,
+        output=output,
+        resume=resume,
+    )
+    records = read_official_reveal_records(output, config=study)
+    gate = build_official_reveal_gate(
+        study,
+        records,
+        dataset_path=dataset,
+    )
+    gate_path = output.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise RuntimeError(f"official reveal supplement gate failed: {failed}")
+    return execution.executed_runs, gate_path
+
+
+def _official_reveal_supplement_command(
+    *,
+    config: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> None:
+    executed, gate = asyncio.run(
+        _run_official_reveal_supplement_pipeline(
+            config_path=config,
+            dataset=dataset,
+            output=output,
+            repo=repo,
+            resume=resume,
+            offline=offline,
+        )
+    )
+    typer.echo(
+        "Official Reveal-All supplement gate passed; "
+        f"executed={executed}; runs={output}; gate={gate}"
+    )
+
+
+@app.command("run-hiddenbench-official-reveal-supplement")
+def run_hiddenbench_official_reveal_supplement_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked official Reveal-All supplement config."),
+    ] = Path(
+        "configs/hiddenbench-official-reveal-supplement-20260804.json"
+    ),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only supplement run JSONL."),
+    ] = Path(
+        "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl"
+    ),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Start the official-compatible global Reveal-All supplement."""
+    _official_reveal_supplement_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=False,
+        offline=offline,
+    )
+
+
+@app.command("resume-hiddenbench-official-reveal-supplement")
+def resume_hiddenbench_official_reveal_supplement_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked official Reveal-All supplement config."),
+    ] = Path(
+        "configs/hiddenbench-official-reveal-supplement-20260804.json"
+    ),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only supplement run JSONL."),
+    ] = Path(
+        "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl"
+    ),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Resume the official-compatible global Reveal-All supplement."""
+    _official_reveal_supplement_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=True,
+        offline=offline,
+    )
+
+
+@app.command("gate-hiddenbench-official-reveal-supplement")
+def gate_hiddenbench_official_reveal_supplement_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked official Reveal-All supplement config."),
+    ] = Path(
+        "configs/hiddenbench-official-reveal-supplement-20260804.json"
+    ),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="Supplement run JSONL."),
+    ] = Path(
+        "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl"
+    ),
+) -> None:
+    """Recompute the supplement gate without API calls."""
+    study = load_official_reveal_config(config)
+    records = read_official_reveal_records(input_path, config=study)
+    gate = build_official_reveal_gate(
+        study,
+        records,
+        dataset_path=dataset,
+    )
+    gate_path = input_path.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise typer.BadParameter(
+            f"official reveal supplement gate failed: {failed}"
+        )
+    typer.echo(
+        f"Official Reveal-All supplement gate passed; API calls=0; gate={gate_path}"
     )
 
 
