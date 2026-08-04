@@ -1,0 +1,32 @@
+{
+  "schema_version": "hiddenbench-official-reveal-supplement-summary-v1",
+  "runs": 30,
+  "model": "deepseek-v4-flash",
+  "protocol": "official-compatible global Reveal-All in round one",
+  "generation_seed_controlled": false,
+  "by_task": {
+    "1": {
+      "successes": 10,
+      "runs": 10,
+      "rate": 1.0,
+      "wilson_95_low": 0.7224672001371107,
+      "wilson_95_high": 0.9999999999999999
+    },
+    "2": {
+      "successes": 10,
+      "runs": 10,
+      "rate": 1.0,
+      "wilson_95_low": 0.7224672001371107,
+      "wilson_95_high": 0.9999999999999999
+    },
+    "3": {
+      "successes": 10,
+      "runs": 10,
+      "rate": 1.0,
+      "wilson_95_low": 0.7224672001371107,
+      "wilson_95_high": 0.9999999999999999
+    }
+  },
+  "api_requests": 2160,
+  "source_sha256": "80402fd4dff56d16171b75bb275cbfa46dde7408f5a4a161d9fa35fdcd81c87a"
+}
