@@ -7,7 +7,82 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pydantic import BaseModel, ConfigDict
+
 from mas_experiment.domain import AgentRole, Question
+
+
+class GitWorktreeError(RuntimeError):
+    """Raised when a formal run cannot be tied to frozen Git state."""
+
+
+class GitWorktreeState(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    commit: str
+    branch: str
+    dirty: bool
+    porcelain: tuple[str, ...]
+
+
+def _git(path: Path, *args: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=path,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise GitWorktreeError(f"git command failed: {' '.join(args)}") from error
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "unknown error"
+        raise GitWorktreeError(
+            f"git command failed ({' '.join(args)}): {detail}"
+        )
+    return result.stdout.strip()
+
+
+def inspect_git_worktree(path: Path) -> GitWorktreeState:
+    resolved = path.resolve()
+    commit = _git(resolved, "rev-parse", "HEAD").casefold()
+    branch = _git(resolved, "branch", "--show-current")
+    porcelain = tuple(
+        line
+        for line in _git(
+            resolved,
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+        ).splitlines()
+        if line.strip()
+    )
+    return GitWorktreeState(
+        commit=commit,
+        branch=branch,
+        dirty=bool(porcelain),
+        porcelain=porcelain,
+    )
+
+
+def require_clean_git_commit(path: Path, expected_commit: str) -> str:
+    state = inspect_git_worktree(path)
+    if not state.branch:
+        raise GitWorktreeError("formal run requires a named branch")
+    if state.dirty:
+        raise GitWorktreeError(
+            "formal run requires a clean worktree; dirty entries: "
+            + ", ".join(state.porcelain)
+        )
+    normalized_expected = expected_commit.strip().casefold()
+    if state.commit != normalized_expected:
+        raise GitWorktreeError(
+            "frozen_code_commit does not equal HEAD: "
+            f"expected {normalized_expected}, found {state.commit}"
+        )
+    return state.commit
 
 
 def current_git_commit() -> str:
