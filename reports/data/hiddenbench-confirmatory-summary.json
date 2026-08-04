@@ -249,6 +249,12 @@
     "total_conditions": 10,
     "total_runs": 400
   },
+  "publication": {
+    "raw_asset": "https://github.com/sbw51898-beep/mas/releases/download/hiddenbench-confirmatory-20260804/hiddenbench-confirmatory-20260804-raw.zip",
+    "raw_asset_sha256": "release/hiddenbench-confirmatory-20260804-raw.sha256",
+    "release_page": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-confirmatory-20260804",
+    "repository": "https://github.com/sbw51898-beep/mas"
+  },
   "run_api_requests": 11971,
   "run_commits": [
     "80f621b223c2a7f0f88434a083c5cf5268d52b51"

@@ -525,6 +525,11 @@ def build_report(
         "项目仓库：https://github.com/sbw51898-beep/mas；固定分支：codex/budget-matched-dynamic；"
         "预定发布页：https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-confirmatory-20260804。",
     )
+    _paragraph(
+        doc,
+        "原始证据 ZIP：https://github.com/sbw51898-beep/mas/releases/download/hiddenbench-confirmatory-20260804/"
+        "hiddenbench-confirmatory-20260804-raw.zip；对应 SHA-256 文件随 Release 同时发布。",
+    )
     source_rows = [[name, digest] for name, digest in summary["source_files"].items()]
     _table(doc, ["原始文件", "SHA-256"], source_rows, [3000, 6360])
     _paragraph(doc, "门禁 15 项全部通过；讨论/投票 API 请求 11,971，审计 API 请求 152。")

@@ -130,6 +130,12 @@ def build_confirmatory_summary(
     ]
     return {
         "schema_version": "hiddenbench-confirmatory-summary-v1",
+        "publication": {
+            "repository": "https://github.com/sbw51898-beep/mas",
+            "release_page": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-confirmatory-20260804",
+            "raw_asset": "https://github.com/sbw51898-beep/mas/releases/download/hiddenbench-confirmatory-20260804/hiddenbench-confirmatory-20260804-raw.zip",
+            "raw_asset_sha256": "release/hiddenbench-confirmatory-20260804-raw.sha256",
+        },
         "run_count": len(rows),
         "audit_count": len(audits),
         "condition_count": len({row["key"]["condition"] for row in rows}),

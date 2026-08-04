@@ -68,3 +68,4 @@ def test_report_preserves_evidence_urls_and_commits(tmp_path: Path) -> None:
     assert "80f621b223c2a7f0f88434a083c5cf5268d52b51" in text
     assert "1aa577992d3abb3c83e5aeb7ce5475de7100e7af" in text
     assert "e1b32d3c217960bc331c0c751217011e92dd9d2b" in text
+    assert "hiddenbench-confirmatory-20260804-raw.zip" in text
