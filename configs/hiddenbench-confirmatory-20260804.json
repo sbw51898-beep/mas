@@ -17,7 +17,7 @@
   "repetitions": 10,
   "base_seed": 20260804,
   "dataset_sha256": "2815afffca4e470d1dfbc81e625160447df1109ce371968181c9e1e6b90443a3",
-  "frozen_code_commit": "b5ccb0ed0d9dcd5300373517b6ccbf8b6874bf03",
+  "frozen_code_commit": "1aa577992d3abb3c83e5aeb7ce5475de7100e7af",
   "experiment_workers": 8,
   "judge_workers": 16,
   "provider": {
