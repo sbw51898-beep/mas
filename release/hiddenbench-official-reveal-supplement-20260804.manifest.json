@@ -1,0 +1,51 @@
+{
+  "files": [
+    {
+      "bytes": 411,
+      "path": "artifacts/hiddenbench-official-reveal-supplement-20260804.gate.json",
+      "sha256": "90bf23dd9a8e5a1c5aa600af5d222fb4752e0d3ce42a739ce5c1606cb004be7c"
+    },
+    {
+      "bytes": 20750531,
+      "path": "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl",
+      "sha256": "80402fd4dff56d16171b75bb275cbfa46dde7408f5a4a161d9fa35fdcd81c87a"
+    },
+    {
+      "bytes": 449,
+      "path": "configs/hiddenbench-official-reveal-supplement-20260804.json",
+      "sha256": "8ec87ac3d56b7820384bf2c22d3722a2c4791ce4f3f9d3392616fda80cdb913d"
+    },
+    {
+      "bytes": 623,
+      "path": "release/hiddenbench-official-reveal-supplement-20260804.provenance.json",
+      "sha256": "fa09f7b6c1e6242cd62a5385736bd0c97fc24bd650e4aa2a994e68ad542e2477"
+    },
+    {
+      "bytes": 16121,
+      "path": "release/hiddenbench-official-reveal-supplement-20260804.trace.jsonl",
+      "sha256": "b226bd7bd9cae67485c483c9ea7767a464db684da417089c8c8a32a12411f39b"
+    },
+    {
+      "bytes": 22813,
+      "path": "reports/data/hiddenbench-hardened-analysis-20260804.json",
+      "sha256": "907a4ea80bbe282042661b510b0f3dee263bbc321a7c681b7843198ff343f068"
+    },
+    {
+      "bytes": 1624,
+      "path": "reports/data/hiddenbench-hardened-statistics-20260804.csv",
+      "sha256": "5801fc10c4d34d1a707207c39e7060587181b631ab74d55f75cda630c1982d0c"
+    },
+    {
+      "bytes": 1176,
+      "path": "reports/data/hiddenbench-mast-cases-20260804.csv",
+      "sha256": "d7b21608bd684c9824167fe61aa60aeadaccd3ffae7a678ddb7ac7d85e7ce566"
+    },
+    {
+      "bytes": 851,
+      "path": "reports/data/hiddenbench-official-reveal-supplement-summary.json",
+      "sha256": "0bcef97f6e064b95e9a2f61609619695e07c86b0e750fd87325a1cf4d4e2050f"
+    }
+  ],
+  "generated_at": "2026-08-04T00:00:00Z",
+  "manifest_version": "1"
+}
