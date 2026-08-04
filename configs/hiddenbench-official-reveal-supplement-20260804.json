@@ -8,7 +8,7 @@
   "repetitions": 10,
   "base_seed": 20260804,
   "dataset_sha256": "2815afffca4e470d1dfbc81e625160447df1109ce371968181c9e1e6b90443a3",
-  "frozen_code_commit": "96eca2f2af511d351ca121ce633e682dd0f36adc",
+  "frozen_code_commit": "533e10f41f6cc9d4a223a2e8244240450b23c8f3",
   "experiment_workers": 8,
   "provider": {
     "model": "deepseek-v4-flash",
