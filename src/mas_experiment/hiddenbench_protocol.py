@@ -7,6 +7,10 @@ from typing import Any, Protocol
 
 from mas_experiment.audit import current_git_commit
 from mas_experiment.hiddenbench_data import HiddenBenchTask
+from mas_experiment.hiddenbench_atomic_disclosure import (
+    append_reveal_all_block,
+    decompose_private_facts,
+)
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS,
     HiddenBenchMessage,
@@ -213,6 +217,7 @@ def _configuration_fingerprint(
     discussion_rounds: int,
     assignment: Any,
     disclosure_first: bool = False,
+    mechanical_reveal_all: bool = False,
 ) -> str:
     payload = {
         "task": task.model_dump(mode="json"),
@@ -222,6 +227,7 @@ def _configuration_fingerprint(
         "agent_ids": AGENT_IDS,
         "prompt_version": PROMPT_VERSION,
         "disclosure_first": disclosure_first,
+        "mechanical_reveal_all": mechanical_reveal_all,
     }
     serialized = json.dumps(
         payload,
@@ -259,6 +265,7 @@ async def run_hiddenbench_task(
     seed: int,
     discussion_rounds: int = 15,
     disclosure_first: bool = False,
+    mechanical_reveal_all: bool = False,
 ) -> HiddenBenchRawRun:
     if discussion_rounds not in (3, 4, 8, 15):
         raise ValueError(
@@ -266,6 +273,7 @@ async def run_hiddenbench_task(
             "(12/16/32/60 messages)"
         )
     assignment = assign_hidden_information(task, seed=seed)
+    atomic_facts = decompose_private_facts(assignment)
     hidden_system_prompts = {
         agent_id: build_hidden_system_prompt(
             task,
@@ -326,6 +334,24 @@ async def run_hiddenbench_task(
                     f"task {task.id} discussion returned empty text for "
                     f"{agent_id} at round {round_index}, turn {turn_index}"
                 )
+            appended_fact_ids: tuple[str, ...] = ()
+            if mechanical_reveal_all and round_index == 1:
+                owner_facts = tuple(
+                    fact
+                    for fact in atomic_facts
+                    if fact.owner_agent_id == agent_id
+                )
+                content, appended_fact_ids = append_reveal_all_block(
+                    content,
+                    owner_facts,
+                )
+            message_metadata = dict(completion.provider_metadata)
+            message_metadata.update(
+                {
+                    "mechanical_reveal_all": bool(appended_fact_ids),
+                    "appended_fact_ids": list(appended_fact_ids),
+                }
+            )
             messages.append(
                 HiddenBenchMessage(
                     message_id=_message_id(
@@ -345,7 +371,7 @@ async def run_hiddenbench_task(
                     ),
                     system_prompt=hidden_system_prompts[agent_id],
                     user_prompt=user_prompt,
-                    provider_metadata=completion.provider_metadata,
+                    provider_metadata=message_metadata,
                 )
             )
 
@@ -406,6 +432,7 @@ async def run_hiddenbench_task(
         discussion_rounds=discussion_rounds,
         assignment=assignment,
         disclosure_first=disclosure_first,
+        mechanical_reveal_all=mechanical_reveal_all,
     )
     all_items = (
         *pre_votes,
@@ -423,7 +450,10 @@ async def run_hiddenbench_task(
         discussion_messages=tuple(messages),
         hidden_post_votes=tuple(post_votes),
         full_profile_votes=tuple(full_votes),
-        provider_metadata=_aggregate_run_metadata(all_items),
+        provider_metadata={
+            **_aggregate_run_metadata(all_items),
+            "mechanical_reveal_all": mechanical_reveal_all,
+        },
         configuration_fingerprint=fingerprint,
         code_commit=current_git_commit(),
     )
