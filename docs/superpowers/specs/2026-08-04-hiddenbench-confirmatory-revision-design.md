@@ -158,10 +158,11 @@ DeepSeek 服务端不接收本实验 seed，因此 seed 只冻结信息分配，
 
 1. `git status --porcelain` 为空；
 2. 当前分支非 detached HEAD；
-3. 当前 commit 已包含本轮协议、配置和测试；
-4. 配置中的 `frozen_code_commit` 与 `git rev-parse HEAD` 相等。
+3. `frozen_code_commit` 已包含本轮协议和测试；
+4. 当前 `HEAD` 是只修改确认性配置的冻结提交，且其父提交等于 `frozen_code_commit`；
+5. `frozen_code_commit..HEAD` 之间的 `src/` 与 `tests/` 无差异。
 
-`current_git_commit()` 增加工作区 dirty 检测；正式模式发现未提交改动时直接失败。
+`current_git_commit()` 增加工作区 dirty 检测；正式模式发现未提交改动时直接失败。运行记录同时保存当前运行提交 `run_commit=HEAD` 和运行时代码提交 `frozen_code_commit=HEAD^`，避免配置文件自引用哈希。
 
 ### 9.2 公开产物
 
