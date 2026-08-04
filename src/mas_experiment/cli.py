@@ -14,6 +14,7 @@ import typer
 from mas_experiment.audit import (
     configuration_fingerprint,
     current_git_commit,
+    inspect_git_worktree,
     write_sha256_manifest,
 )
 from mas_experiment.datasets import (
@@ -37,6 +38,10 @@ from mas_experiment.hiddenbench_data import (
     HiddenBenchTask,
     load_hiddenbench_task,
     load_hiddenbench_tasks,
+)
+from mas_experiment.hiddenbench_confirmatory_domain import (
+    load_confirmatory_config,
+    validate_confirmatory_tasks,
 )
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS as HIDDENBENCH_AGENT_IDS,
@@ -2092,6 +2097,42 @@ def summarize_command(path: Path) -> None:
             f"{mean(item['pairwise_disagreement'] for item in metrics):.3f}\t"
             f"{mean(item['answer_entropy'] for item in metrics):.3f}"
         )
+
+
+@app.command("confirmatory-preflight")
+def confirmatory_preflight_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Git worktree to inspect without changing it."),
+    ] = Path("."),
+) -> None:
+    """Validate confirmatory scope and report Git state without API calls."""
+    study = load_confirmatory_config(config)
+    tasks = load_hiddenbench_tasks(
+        dataset,
+        expected_sha256=study.dataset_sha256,
+    )
+    selected = validate_confirmatory_tasks(tasks)
+    git_state = inspect_git_worktree(repo)
+    typer.echo(
+        "Confirmatory preflight: "
+        f"tasks={','.join(str(task.id) for task in selected)}; "
+        f"conditions={len(study.conditions)}; "
+        f"expected runs={study.expected_run_count}; "
+        f"provider={study.provider.model}; "
+        f"commit={git_state.commit}; "
+        f"branch={git_state.branch or '<detached>'}; "
+        f"dirty={str(git_state.dirty).lower()}; "
+        "API calls=0"
+    )
 
 
 @app.command("maf-smoke")
