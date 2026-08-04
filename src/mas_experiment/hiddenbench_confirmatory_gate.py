@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -191,6 +192,10 @@ def build_confirmatory_gate(
         int(audit.provider_metadata.get("api_requests", 0) or 0)
         for audit in audits
     )
+    audit_commits = {
+        str(audit.provider_metadata.get("audit_code_commit", ""))
+        for audit in audits
+    }
     checks = {
         "complete_run_matrix": (
             len(run_keys) == len(expected) and set(run_keys) == set(expected)
@@ -217,6 +222,13 @@ def build_confirmatory_gate(
             record.frozen_code_commit == config.frozen_code_commit
             and record.run_commit == record.run.code_commit
             for record in records
+        ),
+        "audit_code_provenance": (
+            len(audit_commits) == 1
+            and all(
+                re.fullmatch(r"[0-9a-f]{40}", commit) is not None
+                for commit in audit_commits
+            )
         ),
         "credential_leak_scan": _no_secrets(
             [record.model_dump(mode="json") for record in records]

@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from difflib import SequenceMatcher
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from mas_experiment.audit import current_git_commit
 from mas_experiment.hiddenbench_confirmatory_domain import ConfirmatoryStudyKey
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS,
@@ -249,6 +251,8 @@ def mechanical_reveal_all_audit(
             "api_requests": 0,
             "repair_requests": 0,
             "mechanical_reveal_all": True,
+            "local_evidence_reanchors": 0,
+            "audit_code_commit": current_git_commit(),
         },
     )
 
@@ -372,9 +376,64 @@ def _aggregate_judge_metadata(
             int(item.get("api_requests", 0) or 0) for item in calls
         ),
         "repair_requests": max(0, len(calls) - 1),
+        "local_evidence_reanchors": 0,
+        "audit_code_commit": current_git_commit(),
         "usage": usage,
         "calls": calls,
     }
+
+
+def _reanchor_atomic_evidence(
+    run: HiddenBenchRawRun,
+    text: str,
+) -> tuple[str, int]:
+    payload = _json_object(text)
+    items = payload.get("facts")
+    if not isinstance(items, list):
+        return text, 0
+    messages = {
+        message.message_id: message for message in run.discussion_messages
+    }
+    repaired = 0
+    for item in items:
+        if (
+            not isinstance(item, dict)
+            or item.get("disclosed") is not True
+            or not isinstance(item.get("owner_agent_id"), str)
+            or not isinstance(item.get("evidence_quote"), str)
+            or not isinstance(item.get("evidence_message_ids"), list)
+        ):
+            continue
+        referenced = [
+            messages[message_id]
+            for message_id in item["evidence_message_ids"]
+            if isinstance(message_id, str)
+            and message_id in messages
+            and messages[message_id].agent_id == item["owner_agent_id"]
+        ]
+        quote = item["evidence_quote"]
+        if not referenced or any(
+            quote in message.content for message in referenced
+        ):
+            continue
+        best = ""
+        for message in referenced:
+            match = SequenceMatcher(
+                None,
+                quote.casefold(),
+                message.content.casefold(),
+                autojunk=False,
+            ).find_longest_match()
+            candidate = message.content[
+                match.b : match.b + match.size
+            ].strip(" \t\r\n,.;:!?\"'")
+            if len(candidate) > len(best):
+                best = candidate
+        if len(best) < 12 or len(best.split()) < 2:
+            best = referenced[0].content
+        item["evidence_quote"] = best
+        repaired += 1
+    return json.dumps(payload, ensure_ascii=False), repaired
 
 
 async def audit_atomic_disclosure(
@@ -421,4 +480,20 @@ async def audit_atomic_disclosure(
             )
         except ValueError as error:
             last_error = error
+            if "exact substring" in str(error):
+                reanchored, count = _reanchor_atomic_evidence(
+                    run,
+                    completion.text,
+                )
+                if count:
+                    aggregate = _aggregate_judge_metadata(calls)
+                    aggregate["local_evidence_reanchors"] = count
+                    return parse_atomic_disclosure_audit(
+                        run,
+                        reanchored,
+                        study_key=study_key,
+                        judge_model=judge_model,
+                        judge_prompt_version=judge_prompt_version,
+                        provider_metadata=aggregate,
+                    )
     raise ValueError("atomic disclosure audit invalid after five attempts") from last_error

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from mas_experiment.audit import current_git_commit
 from mas_experiment.hiddenbench_atomic_disclosure import (
     AtomicDisclosureAudit,
     AtomicDisclosureJudgment,
@@ -60,7 +61,11 @@ def _audit(record) -> AtomicDisclosureAudit:
         facts=facts,
         judgments=judgments,
         disclosure_rate=0.0,
-        provider_metadata={"api_requests": 0, "repair_requests": 0},
+        provider_metadata={
+            "api_requests": 0,
+            "repair_requests": 0,
+            "audit_code_commit": current_git_commit(),
+        },
     )
 
 
@@ -182,3 +187,18 @@ async def test_gate_passes_complete_fixture_and_names_each_failure(
         audits,
     )
     assert commit_gate.checks["code_commit_provenance"] is False
+
+    bad_audit_commit = audits[0].model_copy(
+        update={
+            "provider_metadata": {
+                **audits[0].provider_metadata,
+                "audit_code_commit": "unknown",
+            }
+        }
+    )
+    audit_commit_gate = build_confirmatory_gate(
+        CONFIG,
+        records,
+        (bad_audit_commit, *audits[1:]),
+    )
+    assert audit_commit_gate.checks["audit_code_provenance"] is False

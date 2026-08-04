@@ -416,3 +416,72 @@ async def test_atomic_auditor_bypasses_judge_for_mechanical_run() -> None:
 
     assert audit.disclosure_rate == 1.0
     assert len(judge.calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_atomic_auditor_locally_reanchors_near_match_quote() -> None:
+    run = await run_hiddenbench_task(
+        TASK,
+        ScriptedPromptProvider(_three_round_script()),
+        seed=20260804,
+        discussion_rounds=3,
+    )
+    facts = decompose_private_facts(run.assignment)
+    target = next(fact for fact in facts if fact.owner_agent_id == "agent-a")
+    original = run.discussion_messages[0]
+    exact_message = original.model_copy(
+        update={
+            "content": (
+                "The supply truck headed to village was stuck in the tunnel."
+            )
+        }
+    )
+    run = run.model_copy(
+        update={
+            "discussion_messages": (
+                exact_message,
+                *run.discussion_messages[1:],
+            )
+        }
+    )
+    response = json.dumps(
+        {
+            "facts": [
+                {
+                    "fact_id": fact.fact_id,
+                    "owner_agent_id": fact.owner_agent_id,
+                    "disclosed": fact.fact_id == target.fact_id,
+                    "evidence_message_ids": [exact_message.message_id]
+                    if fact.fact_id == target.fact_id
+                    else [],
+                    "evidence_quote": (
+                        "The supply truck headed to the village was stuck "
+                        "in the tunnel."
+                    )
+                    if fact.fact_id == target.fact_id
+                    else "",
+                    "reason": "Evidence checked.",
+                    "confidence": 0.9,
+                }
+                for fact in facts
+            ]
+        }
+    )
+    judge = ScriptedPromptProvider((response,))
+
+    audit = await audit_atomic_disclosure(
+        run,
+        provider=judge,
+        study_key=ConfirmatoryStudyKey(
+            task_id=1,
+            condition="fixed-12",
+            repetition=0,
+        ),
+        judge_model="test-judge",
+        seed=20260804,
+    )
+
+    positive = next(item for item in audit.judgments if item.disclosed)
+    assert positive.evidence_quote in exact_message.content
+    assert audit.provider_metadata["local_evidence_reanchors"] == 1
+    assert len(judge.calls) == 1
