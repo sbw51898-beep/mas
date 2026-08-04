@@ -8,6 +8,7 @@ import pytest
 from mas_experiment.audit import (
     GitWorktreeError,
     inspect_git_worktree,
+    require_clean_confirmatory_state,
     require_clean_git_commit,
 )
 
@@ -65,3 +66,29 @@ def test_detached_head_blocks_formal_run(tmp_path: Path) -> None:
 
     with pytest.raises(GitWorktreeError, match="named branch"):
         require_clean_git_commit(repo, head)
+
+
+def test_confirmatory_state_accepts_config_only_child_commit(
+    tmp_path: Path,
+) -> None:
+    repo, runtime_commit = _repo(tmp_path)
+    (repo / "config.json").write_text("{}\n", encoding="utf-8")
+    _git(repo, "add", "config.json")
+    _git(repo, "commit", "-m", "freeze config")
+
+    state = require_clean_confirmatory_state(repo, runtime_commit)
+
+    assert state.commit == _git(repo, "rev-parse", "HEAD").casefold()
+
+
+def test_confirmatory_state_rejects_runtime_code_after_frozen_parent(
+    tmp_path: Path,
+) -> None:
+    repo, runtime_commit = _repo(tmp_path)
+    (repo / "src").mkdir()
+    (repo / "src" / "changed.py").write_text("x = 1\n", encoding="utf-8")
+    _git(repo, "add", "src/changed.py")
+    _git(repo, "commit", "-m", "change runtime")
+
+    with pytest.raises(GitWorktreeError, match="src/tests"):
+        require_clean_confirmatory_state(repo, runtime_commit)

@@ -15,6 +15,7 @@ from mas_experiment.audit import (
     configuration_fingerprint,
     current_git_commit,
     inspect_git_worktree,
+    require_clean_confirmatory_state,
     write_sha256_manifest,
 )
 from mas_experiment.datasets import (
@@ -42,6 +43,15 @@ from mas_experiment.hiddenbench_data import (
 from mas_experiment.hiddenbench_confirmatory_domain import (
     load_confirmatory_config,
     validate_confirmatory_tasks,
+)
+from mas_experiment.hiddenbench_confirmatory_gate import (
+    build_confirmatory_gate,
+)
+from mas_experiment.hiddenbench_confirmatory_study import (
+    audit_confirmatory_records,
+    read_confirmatory_audits,
+    read_confirmatory_records,
+    run_confirmatory_study,
 )
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS as HIDDENBENCH_AGENT_IDS,
@@ -2132,6 +2142,205 @@ def confirmatory_preflight_command(
         f"branch={git_state.branch or '<detached>'}; "
         f"dirty={str(git_state.dirty).lower()}; "
         "API calls=0"
+    )
+
+
+async def _run_confirmatory_pipeline(
+    *,
+    config_path: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> tuple[int, int, Path]:
+    study = load_confirmatory_config(config_path)
+    tasks = load_hiddenbench_tasks(
+        dataset,
+        expected_sha256=study.dataset_sha256,
+    )
+    validate_confirmatory_tasks(tasks)
+    if offline:
+        provider_factory = StabilityOfflineProvider
+    else:
+        require_clean_confirmatory_state(repo, study.frozen_code_commit)
+        settings = DeepSeekSettings.from_env()
+
+        def provider_factory() -> MAFPromptProvider:
+            return MAFPromptProvider(settings)
+
+    await run_confirmatory_study(
+        tasks=tasks,
+        config=study,
+        provider_factory=provider_factory,
+        output=output,
+        resume=resume,
+    )
+    records = read_confirmatory_records(output, config=study)
+    audit_output = output.with_suffix(".audits.jsonl")
+    await audit_confirmatory_records(
+        records=records,
+        config=study,
+        provider_factory=provider_factory,
+        output=audit_output,
+        resume=resume,
+    )
+    audits = read_confirmatory_audits(audit_output, config=study)
+    gate = build_confirmatory_gate(
+        study,
+        records,
+        audits,
+        dataset_path=dataset,
+    )
+    gate_path = output.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise RuntimeError(f"confirmatory gate failed: {failed}")
+    return len(records), len(audits), gate_path
+
+
+def _confirmatory_command(
+    *,
+    config: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> None:
+    records, audits, gate = asyncio.run(
+        _run_confirmatory_pipeline(
+            config_path=config,
+            dataset=dataset,
+            output=output,
+            repo=repo,
+            resume=resume,
+            offline=offline,
+        )
+    )
+    typer.echo(
+        "HiddenBench confirmatory gate passed; "
+        f"records={records}; audits={audits}; runs={output}; "
+        f"audit_file={output.with_suffix('.audits.jsonl')}; gate={gate}"
+    )
+
+
+@app.command("run-hiddenbench-confirmatory")
+def run_hiddenbench_confirmatory_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only confirmatory run JSONL."),
+    ] = Path("artifacts/hiddenbench-confirmatory-20260804.jsonl"),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Start a new seven-condition confirmatory matrix."""
+    _confirmatory_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=False,
+        offline=offline,
+    )
+
+
+@app.command("resume-hiddenbench-confirmatory")
+def resume_hiddenbench_confirmatory_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only confirmatory run JSONL."),
+    ] = Path("artifacts/hiddenbench-confirmatory-20260804.jsonl"),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Resume only validated complete confirmatory pairs and audits."""
+    _confirmatory_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=True,
+        offline=offline,
+    )
+
+
+@app.command("gate-hiddenbench-confirmatory")
+def gate_hiddenbench_confirmatory_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="Confirmatory run JSONL."),
+    ] = Path("artifacts/hiddenbench-confirmatory-20260804.jsonl"),
+) -> None:
+    """Recompute the confirmatory integrity gate without API calls."""
+    study = load_confirmatory_config(config)
+    records = read_confirmatory_records(input_path, config=study)
+    audits = read_confirmatory_audits(
+        input_path.with_suffix(".audits.jsonl"),
+        config=study,
+    )
+    gate = build_confirmatory_gate(
+        study,
+        records,
+        audits,
+        dataset_path=dataset,
+    )
+    gate_path = input_path.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise typer.BadParameter(f"confirmatory gate failed: {failed}")
+    typer.echo(
+        f"Confirmatory gate passed; API calls=0; gate={gate_path}"
     )
 
 

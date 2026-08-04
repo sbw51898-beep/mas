@@ -14,6 +14,7 @@ from mas_experiment.hiddenbench_atomic_disclosure import (
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS,
     HiddenBenchMessage,
+    HiddenBenchAssignment,
     HiddenBenchRawRun,
     HiddenBenchVote,
     PromptCompletion,
@@ -275,18 +276,23 @@ async def run_hiddenbench_task(
     disclosure_first: bool = False,
     mechanical_reveal_all: bool = False,
     collect_round_shadow_votes: bool = False,
+    assignment: HiddenBenchAssignment | None = None,
 ) -> HiddenBenchRawRun | ShadowVotingRun:
     if discussion_rounds not in (3, 4, 8, 15):
         raise ValueError(
             "discussion_rounds must be 3, 4, 8 or 15 "
             "(12/16/32/60 messages)"
         )
-    assignment = assign_hidden_information(task, seed=seed)
-    atomic_facts = decompose_private_facts(assignment)
+    resolved_assignment = assignment or assign_hidden_information(task, seed=seed)
+    if resolved_assignment.task_id != task.id:
+        raise ValueError("assignment task ID mismatch")
+    if resolved_assignment.seed != seed:
+        raise ValueError("assignment seed mismatch")
+    atomic_facts = decompose_private_facts(resolved_assignment)
     hidden_system_prompts = {
         agent_id: build_hidden_system_prompt(
             task,
-            assignment,
+            resolved_assignment,
             agent_id,
         )
         for agent_id in AGENT_IDS
@@ -451,7 +457,7 @@ async def run_hiddenbench_task(
         task,
         seed=seed,
         discussion_rounds=discussion_rounds,
-        assignment=assignment,
+        assignment=resolved_assignment,
         disclosure_first=disclosure_first,
         mechanical_reveal_all=mechanical_reveal_all,
         collect_round_shadow_votes=collect_round_shadow_votes,
@@ -472,7 +478,7 @@ async def run_hiddenbench_task(
             f"{fingerprint}|raw".encode("utf-8")
         ).hexdigest()[:16],
         task=task,
-        assignment=assignment,
+        assignment=resolved_assignment,
         hidden_pre_votes=tuple(pre_votes),
         discussion_messages=tuple(messages),
         hidden_post_votes=tuple(post_votes),

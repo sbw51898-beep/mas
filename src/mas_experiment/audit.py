@@ -85,6 +85,47 @@ def require_clean_git_commit(path: Path, expected_commit: str) -> str:
     return state.commit
 
 
+def require_clean_confirmatory_state(
+    path: Path,
+    frozen_code_commit: str,
+) -> GitWorktreeState:
+    """Require a clean config-only child of the frozen runtime commit."""
+    state = inspect_git_worktree(path)
+    if not state.branch:
+        raise GitWorktreeError("formal run requires a named branch")
+    if state.dirty:
+        raise GitWorktreeError(
+            "formal run requires a clean worktree; dirty entries: "
+            + ", ".join(state.porcelain)
+        )
+    normalized = frozen_code_commit.strip().casefold()
+    parent = _git(path.resolve(), "rev-parse", "HEAD^").casefold()
+    if parent != normalized:
+        raise GitWorktreeError(
+            "formal confirmatory HEAD must be the config-only child of "
+            f"frozen_code_commit {normalized}; found parent {parent}"
+        )
+    runtime_changes = tuple(
+        line
+        for line in _git(
+            path.resolve(),
+            "diff",
+            "--name-only",
+            f"{normalized}..HEAD",
+            "--",
+            "src",
+            "tests",
+        ).splitlines()
+        if line.strip()
+    )
+    if runtime_changes:
+        raise GitWorktreeError(
+            "config-only freeze changed src/tests: "
+            + ", ".join(runtime_changes)
+        )
+    return state
+
+
 def current_git_commit() -> str:
     try:
         result = subprocess.run(
