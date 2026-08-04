@@ -225,6 +225,7 @@ def _configuration_fingerprint(
     assignment: Any,
     disclosure_first: bool = False,
     mechanical_reveal_all: bool = False,
+    mechanical_global_reveal_round_one: bool = False,
     collect_round_shadow_votes: bool = False,
 ) -> str:
     payload = {
@@ -236,6 +237,9 @@ def _configuration_fingerprint(
         "prompt_version": PROMPT_VERSION,
         "disclosure_first": disclosure_first,
         "mechanical_reveal_all": mechanical_reveal_all,
+        "mechanical_global_reveal_round_one": (
+            mechanical_global_reveal_round_one
+        ),
         "collect_round_shadow_votes": collect_round_shadow_votes,
     }
     serialized = json.dumps(
@@ -275,6 +279,7 @@ async def run_hiddenbench_task(
     discussion_rounds: int = 15,
     disclosure_first: bool = False,
     mechanical_reveal_all: bool = False,
+    mechanical_global_reveal_round_one: bool = False,
     collect_round_shadow_votes: bool = False,
     assignment: HiddenBenchAssignment | None = None,
 ) -> HiddenBenchRawRun | ShadowVotingRun:
@@ -282,6 +287,10 @@ async def run_hiddenbench_task(
         raise ValueError(
             "discussion_rounds must be 3, 4, 8 or 15 "
             "(12/16/32/60 messages)"
+        )
+    if mechanical_reveal_all and mechanical_global_reveal_round_one:
+        raise ValueError(
+            "owner reveal and global round-one reveal are mutually exclusive"
         )
     resolved_assignment = assignment or assign_hidden_information(task, seed=seed)
     if resolved_assignment.task_id != task.id:
@@ -351,7 +360,12 @@ async def run_hiddenbench_task(
                     f"{agent_id} at round {round_index}, turn {turn_index}"
                 )
             appended_fact_ids: tuple[str, ...] = ()
-            if mechanical_reveal_all and round_index == 1:
+            if mechanical_global_reveal_round_one and round_index == 1:
+                content, appended_fact_ids = append_reveal_all_block(
+                    content,
+                    atomic_facts,
+                )
+            elif mechanical_reveal_all and round_index == 1:
                 owner_facts = tuple(
                     fact
                     for fact in atomic_facts
@@ -365,6 +379,10 @@ async def run_hiddenbench_task(
             message_metadata.update(
                 {
                     "mechanical_reveal_all": bool(appended_fact_ids),
+                    "global_reveal_round_one": bool(
+                        mechanical_global_reveal_round_one
+                        and appended_fact_ids
+                    ),
                     "appended_fact_ids": list(appended_fact_ids),
                 }
             )
@@ -460,6 +478,9 @@ async def run_hiddenbench_task(
         assignment=resolved_assignment,
         disclosure_first=disclosure_first,
         mechanical_reveal_all=mechanical_reveal_all,
+        mechanical_global_reveal_round_one=(
+            mechanical_global_reveal_round_one
+        ),
         collect_round_shadow_votes=collect_round_shadow_votes,
     )
     all_items = (
@@ -486,6 +507,9 @@ async def run_hiddenbench_task(
         provider_metadata={
             **_aggregate_run_metadata(all_items),
             "mechanical_reveal_all": mechanical_reveal_all,
+            "global_reveal_round_one": (
+                mechanical_global_reveal_round_one
+            ),
             "shadow_vote_checkpoints": len(shadow_checkpoints),
         },
         configuration_fingerprint=fingerprint,

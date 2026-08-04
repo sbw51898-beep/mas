@@ -141,6 +141,53 @@ async def test_fixed_protocol_stores_mechanically_revealed_facts() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fixed_protocol_global_reveal_matches_official_round_one() -> None:
+    provider = ScriptedPromptProvider(_three_round_script())
+
+    run = await run_hiddenbench_task(
+        TASK,
+        provider,
+        seed=20260804,
+        discussion_rounds=3,
+        mechanical_global_reveal_round_one=True,
+    )
+
+    facts = decompose_private_facts(run.assignment)
+    assert len(facts) == 4
+    for message in run.discussion_messages[:4]:
+        assert all(fact.text in message.content for fact in facts)
+        assert (
+            message.provider_metadata["global_reveal_round_one"] is True
+        )
+        assert tuple(message.provider_metadata["appended_fact_ids"]) == tuple(
+            fact.fact_id for fact in facts
+        )
+
+    for message in run.discussion_messages[4:]:
+        assert "SYSTEM MECHANICAL REVEAL-ALL" not in message.content
+        assert (
+            message.provider_metadata["global_reveal_round_one"] is False
+        )
+        assert message.provider_metadata["appended_fact_ids"] == []
+
+    assert run.provider_metadata["mechanical_reveal_all"] is False
+    assert run.provider_metadata["global_reveal_round_one"] is True
+
+
+@pytest.mark.asyncio
+async def test_owner_and_global_reveal_modes_are_mutually_exclusive() -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        await run_hiddenbench_task(
+            TASK,
+            ScriptedPromptProvider(_three_round_script()),
+            seed=20260804,
+            discussion_rounds=3,
+            mechanical_reveal_all=True,
+            mechanical_global_reveal_round_one=True,
+        )
+
+
+@pytest.mark.asyncio
 async def test_mechanical_reveal_audit_is_100_percent_without_judge_call() -> None:
     run = await run_hiddenbench_task(
         TASK,
