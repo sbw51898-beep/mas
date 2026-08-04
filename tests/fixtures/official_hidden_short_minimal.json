@@ -1,0 +1,46 @@
+{
+  "conditions": [
+    {
+      "condition_id": 1,
+      "model": "gpt-4.1",
+      "runs": [
+        {
+          "scenario": "evacuation_west_city",
+          "final_votes": [
+            {"agent": "Person 1", "vote": "West City"},
+            {"agent": "Person 2", "vote": "West City"},
+            {"agent": "Person 3", "vote": "West City"},
+            {"agent": "Person 4", "vote": "West City"}
+          ]
+        },
+        {
+          "scenario": "evacuation_west_city",
+          "final_votes": [
+            {"agent": "Person 1", "vote": "West City"},
+            {"agent": "Person 2", "vote": "West City"},
+            {"agent": "Person 3", "vote": "East Town"},
+            {"agent": "Person 4", "vote": "East Town"}
+          ]
+        },
+        {
+          "scenario": "evacuation_north_hill",
+          "final_votes": [
+            {"agent": "Person 1", "vote": "North Hill"},
+            {"agent": "Person 2", "vote": "North Hill"},
+            {"agent": "Person 3", "vote": "North Hill"},
+            {"agent": "Person 4", "vote": "North Hill"}
+          ]
+        },
+        {
+          "scenario": "evacuation_east_town",
+          "final_votes": [
+            {"agent": "Person 1", "vote": "West City"},
+            {"agent": "Person 2", "vote": "West City"},
+            {"agent": "Person 3", "vote": "West City"},
+            {"agent": "Person 4", "vote": "West City"}
+          ]
+        }
+      ]
+    }
+  ]
+}
