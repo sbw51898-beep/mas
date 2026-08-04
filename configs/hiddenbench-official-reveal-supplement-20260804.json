@@ -1,0 +1,18 @@
+{
+  "configuration_version": "hiddenbench-official-reveal-supplement-v1",
+  "task_ids": [
+    1,
+    2,
+    3
+  ],
+  "repetitions": 10,
+  "base_seed": 20260804,
+  "dataset_sha256": "2815afffca4e470d1dfbc81e625160447df1109ce371968181c9e1e6b90443a3",
+  "frozen_code_commit": "96eca2f2af511d351ca121ce633e682dd0f36adc",
+  "experiment_workers": 8,
+  "provider": {
+    "model": "deepseek-v4-flash",
+    "temperature": 0,
+    "thinking": "disabled"
+  }
+}
