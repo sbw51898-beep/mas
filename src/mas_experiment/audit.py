@@ -33,6 +33,8 @@ def _git(path: Path, *args: str) -> str:
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="strict",
             timeout=5,
         )
     except (OSError, subprocess.SubprocessError) as error:
