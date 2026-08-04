@@ -27,6 +27,12 @@ from mas_experiment.hiddenbench_prompts import (
     build_vote_repair_prompt,
     build_vote_user_prompt,
 )
+from mas_experiment.hiddenbench_shadow_voting import (
+    ShadowVoteCheckpoint,
+    ShadowVotingRun,
+    collect_shadow_votes,
+    evaluate_early_stop,
+)
 
 
 PROMPT_VERSION = "hiddenbench-appendix-a4-v1"
@@ -218,6 +224,7 @@ def _configuration_fingerprint(
     assignment: Any,
     disclosure_first: bool = False,
     mechanical_reveal_all: bool = False,
+    collect_round_shadow_votes: bool = False,
 ) -> str:
     payload = {
         "task": task.model_dump(mode="json"),
@@ -228,6 +235,7 @@ def _configuration_fingerprint(
         "prompt_version": PROMPT_VERSION,
         "disclosure_first": disclosure_first,
         "mechanical_reveal_all": mechanical_reveal_all,
+        "collect_round_shadow_votes": collect_round_shadow_votes,
     }
     serialized = json.dumps(
         payload,
@@ -266,7 +274,8 @@ async def run_hiddenbench_task(
     discussion_rounds: int = 15,
     disclosure_first: bool = False,
     mechanical_reveal_all: bool = False,
-) -> HiddenBenchRawRun:
+    collect_round_shadow_votes: bool = False,
+) -> HiddenBenchRawRun | ShadowVotingRun:
     if discussion_rounds not in (3, 4, 8, 15):
         raise ValueError(
             "discussion_rounds must be 3, 4, 8 or 15 "
@@ -307,6 +316,7 @@ async def run_hiddenbench_task(
             ) from error
 
     messages: list[HiddenBenchMessage] = []
+    shadow_checkpoints: list[ShadowVoteCheckpoint] = []
     for round_index in range(1, discussion_rounds + 1):
         for agent_id in AGENT_IDS:
             turn_index = len(messages)
@@ -374,6 +384,17 @@ async def run_hiddenbench_task(
                     provider_metadata=message_metadata,
                 )
             )
+        if collect_round_shadow_votes:
+            shadow_checkpoints.append(
+                await collect_shadow_votes(
+                    task,
+                    provider,
+                    system_prompts=hidden_system_prompts,
+                    public_history=tuple(messages),
+                    round_index=round_index,
+                    seed=seed,
+                )
+            )
 
     post_votes: list[HiddenBenchVote] = []
     public_history = tuple(messages)
@@ -433,14 +454,20 @@ async def run_hiddenbench_task(
         assignment=assignment,
         disclosure_first=disclosure_first,
         mechanical_reveal_all=mechanical_reveal_all,
+        collect_round_shadow_votes=collect_round_shadow_votes,
     )
     all_items = (
         *pre_votes,
         *messages,
+        *(
+            vote
+            for checkpoint in shadow_checkpoints
+            for vote in checkpoint.votes
+        ),
         *post_votes,
         *full_votes,
     )
-    return HiddenBenchRawRun(
+    raw = HiddenBenchRawRun(
         run_id=hashlib.sha256(
             f"{fingerprint}|raw".encode("utf-8")
         ).hexdigest()[:16],
@@ -453,7 +480,20 @@ async def run_hiddenbench_task(
         provider_metadata={
             **_aggregate_run_metadata(all_items),
             "mechanical_reveal_all": mechanical_reveal_all,
+            "shadow_vote_checkpoints": len(shadow_checkpoints),
         },
         configuration_fingerprint=fingerprint,
         code_commit=current_git_commit(),
+    )
+    if not collect_round_shadow_votes:
+        return raw
+    return ShadowVotingRun(
+        run=raw,
+        shadow_checkpoints=tuple(shadow_checkpoints),
+        early_stop=evaluate_early_stop(
+            tuple(shadow_checkpoints),
+            final_votes=raw.hidden_post_votes,
+            correct_answer=task.correct_answer,
+            total_public_messages=len(raw.discussion_messages),
+        ),
     )
