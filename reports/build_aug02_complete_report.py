@@ -820,7 +820,6 @@ def build_report(
     _configure_complete(doc)
     _masthead(doc, summary)
     _technical_summary(doc, summary)
-    _page_break(doc)
     _teacher_answers(doc)
     _timeline(doc, summary)
     _paper_boundary(doc, summary)

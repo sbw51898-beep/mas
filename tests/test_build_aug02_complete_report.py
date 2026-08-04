@@ -100,3 +100,13 @@ def test_complete_report_uses_fixed_geometry_and_preserves_existing_reports(
         assert indent.get(qn("w:type")) == "dxa"
     for path, expected_hash in PRESERVED_HASHES.items():
         assert hashlib.sha256(path.read_bytes()).hexdigest() == expected_hash
+
+
+def test_complete_report_uses_only_the_appendix_page_break(tmp_path: Path) -> None:
+    output = tmp_path / "complete.docx"
+
+    build_report(root=ROOT, output=output, desktop_output=None)
+
+    document = Document(output)
+    page_breaks = document._element.xpath("//w:br[@w:type='page']")
+    assert len(page_breaks) == 1
