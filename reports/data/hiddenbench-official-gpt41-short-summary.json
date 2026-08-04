@@ -1,0 +1,86 @@
+{
+  "baseline": {
+    "by_task": {
+      "1": {
+        "average_accuracy": 0.36666666666666664,
+        "correct_answer": "West City",
+        "false_consensus_rate": 0.6333333333333333,
+        "majority_accuracy": 0.36666666666666664,
+        "runs": 30,
+        "scenario": "evacuation_west_city",
+        "task_id": 1,
+        "unanimous_correct_rate": 0.36666666666666664
+      },
+      "2": {
+        "average_accuracy": 0.13333333333333333,
+        "correct_answer": "North Hill",
+        "false_consensus_rate": 0.8666666666666667,
+        "majority_accuracy": 0.13333333333333333,
+        "runs": 30,
+        "scenario": "evacuation_north_hill",
+        "task_id": 2,
+        "unanimous_correct_rate": 0.13333333333333333
+      },
+      "3": {
+        "average_accuracy": 0.2,
+        "correct_answer": "East Town",
+        "false_consensus_rate": 0.7666666666666667,
+        "majority_accuracy": 0.2,
+        "runs": 30,
+        "scenario": "evacuation_east_town",
+        "task_id": 3,
+        "unanimous_correct_rate": 0.2
+      }
+    },
+    "condition_id": 1,
+    "model": "gpt-4.1",
+    "source": {
+      "bytes": 6534949,
+      "sha256": "b470918c6ef2fa50ca6b237caf4700b37800f30e032416061ade00dedc5cab18",
+      "url": "https://huggingface.co/datasets/YuxuanLi1225/HiddenBench-results/resolve/main/short_and_ablations/results_hidden_short_hidden_short.json"
+    },
+    "total_runs": 90
+  },
+  "reveal_all": {
+    "by_task": {
+      "1": {
+        "average_accuracy": 1.0,
+        "correct_answer": "West City",
+        "false_consensus_rate": 0.0,
+        "majority_accuracy": 1.0,
+        "runs": 10,
+        "scenario": "evacuation_west_city",
+        "task_id": 1,
+        "unanimous_correct_rate": 1.0
+      },
+      "2": {
+        "average_accuracy": 0.9,
+        "correct_answer": "North Hill",
+        "false_consensus_rate": 0.1,
+        "majority_accuracy": 0.9,
+        "runs": 10,
+        "scenario": "evacuation_north_hill",
+        "task_id": 2,
+        "unanimous_correct_rate": 0.9
+      },
+      "3": {
+        "average_accuracy": 1.0,
+        "correct_answer": "East Town",
+        "false_consensus_rate": 0.0,
+        "majority_accuracy": 1.0,
+        "runs": 10,
+        "scenario": "evacuation_east_town",
+        "task_id": 3,
+        "unanimous_correct_rate": 1.0
+      }
+    },
+    "condition_id": 1,
+    "model": "gpt-4.1",
+    "source": {
+      "bytes": 2281875,
+      "sha256": "de2ab0d39ebc6fa61c387cd5e63402924c8745df6fe5bb09bc52a938d52079bc",
+      "url": "https://huggingface.co/datasets/YuxuanLi1225/HiddenBench-results/resolve/main/short_and_ablations/results_hidden_short_reveal_all_hidden_hidden_short_reveal_all_hidden.json"
+    },
+    "total_runs": 30
+  }
+}
