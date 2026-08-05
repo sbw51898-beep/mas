@@ -139,3 +139,17 @@ def test_document_runtime_can_load_paper_builder() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_reference_entries_use_correct_document_types(tmp_path: Path) -> None:
+    output = tmp_path / "paper.docx"
+
+    build_report(ROOT, output, None)
+
+    text = _document_text(Document(output))
+    assert "[2] Garold Stasser and William Titus." in text
+    assert "Sampling during Discussion [J]." in text
+    assert "[3] Li Lu, Y. Connie Yuan, and Poppy Lauretta McLeod." in text
+    assert "A Meta-Analysis [J]." in text
+    assert "[11] Mert Cemri" in text
+    assert "Why Do Multi-Agent LLM Systems Fail? [C]." in text

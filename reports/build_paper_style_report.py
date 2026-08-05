@@ -637,11 +637,24 @@ def _conclusion(document: DocumentType) -> None:
 
 
 def _reference_entry(index: int, item: dict[str, Any]) -> str:
+    journal_keys = {"stasser_titus", "hidden_profile_meta", "social_influence"}
+    conference_keys = {
+        "hiddenbench",
+        "multiagent_debate",
+        "metagpt",
+        "chatdev",
+        "autogen",
+        "mast",
+        "divergent_debate",
+        "failure_attribution",
+        "dylan",
+        "emergent_coordination",
+    }
     if item["key"] == "maf":
         kind = "[EB/OL]"
-    elif "Journal" in item["venue"] or "Proceedings of the National Academy" in item["venue"]:
+    elif item["key"] in journal_keys:
         kind = "[J]"
-    elif "Conference" in item["venue"] or "Proceedings" in item["venue"]:
+    elif item["key"] in conference_keys:
         kind = "[C]"
     else:
         kind = "[EB/OL]"
