@@ -1,0 +1,151 @@
+{
+  "schema_version": "hiddenbench-closure-evidence-v1",
+  "source_artifacts": {
+    "confirmatory_records": "artifacts/hiddenbench-confirmatory-20260804.jsonl",
+    "atomic_disclosure_audits": "artifacts/hiddenbench-confirmatory-20260804.audits.jsonl"
+  },
+  "single_agent_comparison": {
+    "scope": {
+      "task_ids": [
+        1,
+        2,
+        3
+      ],
+      "repetitions": 10,
+      "model": "deepseek-v4-flash"
+    },
+    "overall": {
+      "single_local": "4/30",
+      "single_full_profile": "20/30",
+      "fixed_60_multi_agent": "17/30"
+    },
+    "by_task": [
+      {
+        "task_id": 1,
+        "single_local": "2/10",
+        "single_full_profile": "10/10",
+        "fixed_60_multi_agent": "10/10"
+      },
+      {
+        "task_id": 2,
+        "single_local": "2/10",
+        "single_full_profile": "10/10",
+        "fixed_60_multi_agent": "0/10"
+      },
+      {
+        "task_id": 3,
+        "single_local": "0/10",
+        "single_full_profile": "0/10",
+        "fixed_60_multi_agent": "7/10"
+      }
+    ],
+    "interpretation_boundary": "single_full_profile is the no-discussion full-information vote stored inside each single-local run, not a separate new API run"
+  },
+  "causal_cards": [
+    {
+      "mechanism": "information_not_disclosed",
+      "run_id": "0d078a3c85f64262",
+      "study_key": {
+        "task_id": 2,
+        "condition": "fixed-60",
+        "repetition": 0
+      },
+      "correct_answer": "North Hill",
+      "final_votes": [
+        "East Town",
+        "East Town",
+        "East Town",
+        "East Town"
+      ],
+      "facts": [
+        {
+          "fact_id": "atomic-fact:fdb95995b31ce89325cc",
+          "owner_agent_id": "agent-b",
+          "fact": "The supply truck headed to the village from East Town was stuck in the tunnel.",
+          "disclosed": false,
+          "evidence_message_ids": [],
+          "evidence_quote": "",
+          "audit_reason": "No agent-b message mentions the supply truck being stuck in the tunnel."
+        },
+        {
+          "fact_id": "atomic-fact:a5ea8046cfb28a0e9f46",
+          "owner_agent_id": "agent-d",
+          "fact": "A massive fire has blocked the supply truck and all other traffic.",
+          "disclosed": false,
+          "evidence_message_ids": [],
+          "evidence_quote": "",
+          "audit_reason": "No agent-d message mentions a massive fire blocking the supply truck or all traffic."
+        }
+      ],
+      "undisclosed_fact_count": 2,
+      "final_rationales": [
+        "The dam release makes West City's bridge unsafe, and North Hill's trails are blocked, leaving East Town's tunnel as the only viable route.",
+        "The bridge to West City is unsafe due to the dam release, and North Hill's trails are blocked, leaving East Town's tunnel as the only viable route.",
+        "The dam release makes the bridge to West City unsafe, and North Hill's walking trails are blocked, leaving East Town's tunnel as the only viable route.",
+        "The dam release makes West City's bridge unsafe, and North Hill's trails are blocked, so East Town's tunnel is the only viable route."
+      ],
+      "conclusion_boundary": "The frozen atomic audit finds two route-blocking facts absent from their owners' public messages. This supports an output-level non-disclosure observation, not a complete causal attribution."
+    },
+    {
+      "mechanism": "evidence_misinterpreted",
+      "run_id": "e46521e6691a10ca",
+      "study_key": {
+        "task_id": 2,
+        "condition": "fixed-reveal-all",
+        "repetition": 1
+      },
+      "correct_answer": "North Hill",
+      "all_atomic_facts_disclosed": true,
+      "injected_evidence_message_id": "e0528435edaa8576",
+      "injected_evidence_quote": "The supply truck headed to the village from East Town was stuck in the tunnel.",
+      "contradictory_message_id": "b5a31c876a93aea6",
+      "contradictory_message_quote": "East Town is the correct choice—the tunnel is clear, the mayor has accommodations ready, and the bridge to West City is threatened by the dam release while North Hill’s trails are blocked. Let’s all evacuate to East Town.",
+      "contradictory_final_rationale": "The tunnel is clear, the mayor has accommodations ready, and the dam release threatens West City's bridge while North Hill's trails are blocked.",
+      "final_votes": [
+        "East Town",
+        "East Town",
+        "East Town",
+        "East Town"
+      ],
+      "conclusion_boundary": "The outputs contain a direct contradiction between a mechanically injected fact that the truck was stuck in the tunnel and later claims that the tunnel was clear. It is an output-level misinterpretation signal; human coding is still required before asserting an internal causal mechanism."
+    },
+    {
+      "mechanism": "evidence_not_used_after_disclosure",
+      "run_id": "bfba1db7a056ebea",
+      "study_key": {
+        "task_id": 3,
+        "condition": "fixed-60",
+        "repetition": 0
+      },
+      "correct_answer": "East Town",
+      "all_atomic_facts_disclosed": true,
+      "late_evidence_message_id": "d85fde011965a482",
+      "late_evidence_quote": "I agree with the group—North Hill is the best choice given the bridge risk and East Town’s volunteer shortage, but we must note the walking trails are closed, so we’ll rely on the driveway if it’s clear. Let’s all commit to North Hill and coordinate departure immediately.",
+      "follow_up_message_id": "b8dd85f9f7bf206d",
+      "follow_up_quote": "I agree with the group consensus for North Hill, but I must flag that the mudslide covering the driveway makes it inaccessible—so we need to verify the walking trails are open before committing, or we risk being stranded. Let’s all confirm we can use the trails and head there together.",
+      "final_votes": [
+        "North Hill",
+        "North Hill",
+        "North Hill",
+        "North Hill"
+      ],
+      "final_rationales": [
+        "The bridge to West City is unsafe due to the dam release, and East Town has a volunteer shortage. North Hill's school provides supplies and shelter, and despite the mudslide blocking the driveway, walking trails may be usable.",
+        "The bridge to West City is unsafe due to the river level, and East Town has a volunteer shortage, making North Hill the most reliable option with the school's supplies and shelter.",
+        "The bridge to West City is unsafe due to the river, and East Town has a volunteer shortage, while North Hill's school offers supplies and shelter, despite the need to verify trail access.",
+        "The bridge to West City is unsafe due to the river, and East Town has a volunteer shortage, while North Hill's school offers supplies and shelter, despite the mudslide blocking the driveway, we can use walking trails if open."
+      ],
+      "conclusion_boundary": "All four facts were marked disclosed, and late messages jointly state that both North Hill access routes require verification or are blocked, yet the final action remains North Hill. This is evidence that disclosed evidence was not consistently carried into the final action; human coding must distinguish non-use from misinterpretation."
+    }
+  ],
+  "protocol_clarifications": {
+    "ordinary_disclosure": "Under ordinary conditions each agent holds one private fact. Disclosure is neither randomized nor mechanically forced: the model decides whether and how to mention its fact in a public turn.",
+    "reveal_all": "Only Reveal-All mechanically appends private facts to public messages; it is a diagnostic information-availability condition.",
+    "fixed_60_continuation": "fixed-60 retains 15 rounds × 4 agents even after early apparent agreement to observe late evidence, correction, stance changes, and final-vote stability. It is a diagnostic protocol, not an early-stopping policy."
+  },
+  "boundaries": {
+    "human_review": "pending_real_human_double_blind_review",
+    "model_framework_decoupling": "pending_gpt41_or_equivalent_api_access",
+    "ai_disclosure_audit": "The frozen disclosure labels were produced by a model-assisted atomic audit and are not human gold-standard labels."
+  }
+}
