@@ -127,9 +127,20 @@ def test_report_has_true_sequential_footnotes_and_ordered_bibliography(tmp_path:
                 ".//w:footnote[number(@w:id) >= 1]", namespaces=NS
             )
         ]
+        reserved_types = {
+            int(node.get(f"{{{W_NS}}}id")): node.get(f"{{{W_NS}}}type")
+            for node in footnotes.xpath(
+                ".//w:footnote[number(@w:id) < 1]", namespaces=NS
+            )
+        }
         assert body_ids == list(range(1, len(body_ids) + 1))
         assert note_ids == body_ids
         assert len(body_ids) >= 15
+        assert reserved_types == {-1: "separator", 0: "continuationSeparator"}
+        for node in footnotes.xpath(
+            ".//w:footnote[number(@w:id) >= 1]", namespaces=NS
+        ):
+            assert xml_text(node).strip()
 
         paragraphs = document.xpath(".//w:body/w:p", namespaces=NS)
         texts = [xml_text(paragraph) for paragraph in paragraphs]
@@ -147,6 +158,24 @@ def test_report_has_true_sequential_footnotes_and_ordered_bibliography(tmp_path:
             assert paragraph.xpath("./w:pPr/w:keepLines", namespaces=NS)
         assert "[[FN" not in body_text
         assert not re.search(r"\[\d+(?:-\d+)?\]", body_text)
+
+
+def test_report_has_visual_page_break_guards(tmp_path: Path) -> None:
+    output = tmp_path / "correctness.docx"
+
+    build_correctness_governance_report(ROOT, output, None)
+
+    document = Document(output)
+    title = document.paragraphs[0]
+    title_sizes = [run.font.size.pt for run in title.runs if run.font.size]
+    assert title_sizes and max(title_sizes) <= 20
+
+    appendix_d = next(
+        paragraph
+        for paragraph in document.paragraphs
+        if paragraph.text.strip() == "附录 D  术语与结论边界"
+    )
+    assert appendix_d.paragraph_format.page_break_before
 
 
 def test_report_uses_fixed_geometry_and_preserves_existing_reports(tmp_path: Path) -> None:

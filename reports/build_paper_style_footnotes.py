@@ -290,6 +290,7 @@ def _make_footnotes(note_texts: list[str]) -> etree._Element:
     def separator(note_id: int, tag: str) -> None:
         note = etree.SubElement(root, f"{{{W_NS}}}footnote")
         note.set(f"{{{W_NS}}}id", str(note_id))
+        note.set(f"{{{W_NS}}}type", tag)
         paragraph = etree.SubElement(note, f"{{{W_NS}}}p")
         run = etree.SubElement(paragraph, f"{{{W_NS}}}r")
         etree.SubElement(run, f"{{{W_NS}}}{tag}")

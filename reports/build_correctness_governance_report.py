@@ -49,6 +49,7 @@ PRESERVED_HASHES = {
 }
 
 NAVY = RGBColor(23, 54, 93)
+BLUE = RGBColor(46, 116, 181)
 MUTED = RGBColor(91, 101, 115)
 
 
@@ -101,7 +102,7 @@ def _title_and_abstract(document: DocumentType, evidence: dict[str, Any]) -> Non
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
     title.paragraph_format.space_before = Pt(14)
     title.paragraph_format.space_after = Pt(8)
-    _font(title.add_run("基于 MAF 的多智能体正确性治理与错误链路分析"), 22, bold=True, color=NAVY)
+    _font(title.add_run("基于 MAF 的多智能体正确性治理与错误链路分析"), 20, bold=True, color=NAVY)
 
     meta = document.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -458,7 +459,11 @@ def _appendices(document: DocumentType, evidence: dict[str, Any]) -> None:
         "冻结证据文件的 SHA-256 已保存在 reports/data/hiddenbench-paper-evidence-20260805.json；正文所有数量和比例均从该快照读取。",
     )
 
-    _heading(document, "附录 D  术语与结论边界", level=2)
+    appendix_d = document.add_heading("附录 D  术语与结论边界", level=2)
+    appendix_d.paragraph_format.keep_with_next = True
+    appendix_d.paragraph_format.page_break_before = True
+    for run in appendix_d.runs:
+        _font(run, 13, bold=True, color=BLUE)
     term_rows = [
         ["MAF", "Microsoft Agent Framework；本文只使用 Agent/模型执行能力。"],
         ["披露率 D", "通过证据核验的已披露原子事实数 m 除以事实总数 n。"],
