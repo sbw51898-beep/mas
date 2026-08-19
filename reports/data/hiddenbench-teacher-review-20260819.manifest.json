@@ -1,0 +1,66 @@
+{
+  "manifest_version": "hiddenbench-teacher-review-v1",
+  "created_at": "2026-08-19",
+  "purpose": "固定老师问题全部修订版报告、生成脚本和补充自报披露审计的可追溯证据入口",
+  "files": [
+    {
+      "path": "reports/基于MAF的HiddenBench多智能体正确性诊断与错误链路分析_老师问题全部修订版_2026-08-19.docx",
+      "bytes": 299911,
+      "sha256": "72642dc39bc795041ea160dbe80da796d345aefba6c338554856e157a401906d",
+      "role": "最终报告"
+    },
+    {
+      "path": "reports/build_hiddenbench_closure_report.py",
+      "bytes": 71616,
+      "sha256": "16ee145eea65630615b47d4241e3ec77fac89c347e325d6f345be07609fb8496",
+      "role": "报告生成脚本"
+    },
+    {
+      "path": "reports/run_self_report_audit.py",
+      "bytes": 9135,
+      "sha256": "21ea9f25c5a8728cec5389e02c6762169d56fc2129b92fa502df7e8d3f3987fa",
+      "role": "模型自报披露率审计脚本"
+    },
+    {
+      "path": "artifacts/hiddenbench-confirmatory-20260804.self-report-audits.jsonl",
+      "bytes": 204221,
+      "sha256": "5fd92fecba9eaef5929d2e89355d34d50b6404b5017c51024efd05351f05fd1e",
+      "role": "60 次 fixed/dynamic 自报披露审计结果"
+    },
+    {
+      "path": "reports/data/hiddenbench-closure-evidence-20260817.json",
+      "bytes": 31273,
+      "sha256": "f445eda19224efe40e9459998fa1da5f69ccff3ee0838b11920fc41043622efd",
+      "role": "冻结闭环统计与案例证据摘要"
+    },
+    {
+      "path": "reports/build_correctness_governance_report.py",
+      "bytes": 31834,
+      "sha256": "0a607332536e9ca5685b54d865e4ee430572e7ef54f4ec516f3a65af62fdd7a9",
+      "role": "底层报告组件"
+    },
+    {
+      "path": "src/mas_experiment/hiddenbench_closure.py",
+      "bytes": 41603,
+      "sha256": "acbac6b5ef46582eea79944e6de21bd8ed92b479800085c117efd3740cd42cfc",
+      "role": "闭环证据计算实现"
+    },
+    {
+      "path": "artifacts/hiddenbench-confirmatory-20260804.audits.jsonl",
+      "bytes": 565562,
+      "sha256": "6df072ef7eee2b998d32133a6cf0c9cad13de9c90347bb3a397eb1362ac29e86",
+      "role": "冻结逐事实披露审计输入；历史 Release 已固定"
+    },
+    {
+      "path": "artifacts/hiddenbench-confirmatory-20260804.jsonl",
+      "bytes": 114639737,
+      "sha256": "6002665ebcdca219e8d4aefc8aee7f284773ee8c7cc8065cac931bd3ba5d329b",
+      "role": "冻结讨论轨迹输入；历史 Release 已固定"
+    }
+  ],
+  "interpretation_boundaries": [
+    "披露率仍是模型辅助的来源事实包级审计，不是人工金标准。",
+    "dynamic-60 只在相同公开发言数下与 fixed-60 比较，且选择器可读取完整私有事实，不能解释为公平因果基线。",
+    "人工双盲金标准、模型—框架 2×2 解耦和自动第二轮干预仍未完成。"
+  ]
+}
