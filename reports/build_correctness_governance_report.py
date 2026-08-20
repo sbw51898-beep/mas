@@ -456,7 +456,7 @@ def _appendices(document: DocumentType, evidence: dict[str, Any]) -> None:
         ["实验分支", publication["branch"]],
         ["Pull Request", publication["pull_request"]],
         ["历史证据 Release", publication["release"]],
-        ["本次修订 manifest", "reports/data/hiddenbench-teacher-review-20260820.manifest.json"],
+        ["本次修订 manifest", "reports/data/hiddenbench-teacher-review-20260820-v2.manifest.json"],
     ]
     _table(document, ["项目", "位置"], source_rows, [2400, 6960], font_size=7.2)
     _body(

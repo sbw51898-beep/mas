@@ -40,7 +40,7 @@ from reports.build_paper_style_report import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REPORT_NAME = "基于MAF的HiddenBench多智能体正确性诊断与错误链路分析_老师问题全部修订版_2026-08-20.docx"
+REPORT_NAME = "基于MAF的HiddenBench多智能体正确性诊断与错误链路分析_老师问题全部修订版_2026-08-20-v2.docx"
 CLOSURE_EVIDENCE_PATH = Path("reports/data/hiddenbench-closure-evidence-20260817.json")
 FROZEN_AUDIT_PATH = Path("artifacts/hiddenbench-confirmatory-20260804.audits.jsonl")
 SELF_REPORT_PATH = Path("artifacts/hiddenbench-confirmatory-20260804.self-report-audits.jsonl")
@@ -442,6 +442,35 @@ def _replace_appendix_code_block(
     _insert_code_block_before(document, next_heading, replacement)
 
 
+def _insert_appendix_note_before_code(
+    document: DocumentType,
+    *,
+    heading_fragment: str,
+    next_heading_fragment: str,
+    note: str,
+) -> None:
+    """Insert a reader-facing note before an appendix code block."""
+    paragraphs = list(document.paragraphs)
+    start = next(
+        index
+        for index, paragraph in enumerate(paragraphs)
+        if heading_fragment in paragraph.text
+    )
+    end = next(
+        index
+        for index, paragraph in enumerate(paragraphs[start + 1 :], start + 1)
+        if next_heading_fragment in paragraph.text
+    )
+    if end <= start + 1:
+        raise ValueError("appendix code block is missing")
+    anchor = paragraphs[start + 1]
+    paragraph = document.add_paragraph()
+    paragraph.paragraph_format.space_after = Pt(4)
+    paragraph.paragraph_format.line_spacing = 1.0
+    _font(paragraph.add_run(note), 8.2, color=governance.MUTED)
+    anchor._p.addprevious(paragraph._p)
+
+
 def _keep_completed_content_only(document: DocumentType) -> None:
     """Remove report passages that describe unexecuted follow-up work."""
     _replace_first_paragraph(
@@ -506,7 +535,7 @@ def _keep_completed_content_only(document: DocumentType) -> None:
     _replace_first_paragraph(
         document,
         "B.3  原子事实披露审计 Prompt",
-        "B.3  原子事实披露审计 Prompt（真实模板）",
+        "B.3  来源事实包披露审计 Prompt（冻结原始模板；原文保留）",
         size=12,
         bold=True,
         color=governance.NAVY,
@@ -528,14 +557,20 @@ def _keep_completed_content_only(document: DocumentType) -> None:
     _replace_appendix_code_block(
         document,
         heading_fragment="B.2  冻结确认性最终投票 Prompt",
-        next_heading_fragment="B.3  原子事实披露审计 Prompt",
+        next_heading_fragment="B.3  来源事实包披露审计 Prompt",
         replacement=RUNTIME_VOTE_PROMPT,
     )
     _replace_appendix_code_block(
         document,
-        heading_fragment="B.3  原子事实披露审计 Prompt",
+        heading_fragment="B.3  来源事实包披露审计 Prompt",
         next_heading_fragment="B.4  官方 Reveal-All 时序兼容",
         replacement=RUNTIME_ATOMIC_AUDIT_PROMPT,
+    )
+    _insert_appendix_note_before_code(
+        document,
+        heading_fragment="B.3  来源事实包披露审计 Prompt",
+        next_heading_fragment="B.4  官方 Reveal-All 时序兼容",
+        note="说明：下面保留冻结实验使用的原始 Prompt。其中“ATOMIC PRIVATE FACTS”是冻结 Prompt 的历史字段名；在本文口径中它对应来源事实包，不等于 clause-level 原子命题。",
     )
     _replace_appendix_code_block(
         document,
@@ -1130,7 +1165,7 @@ def _report_boundaries_and_prompts(
     )
     _body(
         document,
-        "冻结运行没有记录解析后的精确包版本，因此本报告不声称已完成版本级归因。运行配置固定为 deepseek-v4-flash、temperature=0、thinking=disabled；DeepSeek 未接收同步 generation seed，因此这里只能保证任务、事实分配和协议输入的配对。本稿交付包将报告、生成脚本、自报审计 JSONL、闭环证据快照和 SHA-256 清单统一放入 reports/data/hiddenbench-teacher-review-20260820.manifest.json；本次修订的 manifest_version 为 hiddenbench-teacher-review-20260820-v1。旧版 Release 仅保存历史冻结轨迹，新提交的固定 commit/release 以新 manifest 为主入口。",
+        "冻结运行没有记录解析后的精确包版本，因此本报告不声称已完成版本级归因。运行配置固定为 deepseek-v4-flash、temperature=0、thinking=disabled；DeepSeek 未接收同步 generation seed，因此这里只能保证任务、事实分配和协议输入的配对。本稿交付包将报告、生成脚本、自报审计 JSONL、闭环证据快照和 SHA-256 清单统一放入 reports/data/hiddenbench-teacher-review-20260820-v2.manifest.json；本次修订的 manifest_version 为 hiddenbench-teacher-review-20260820-v2。旧版 Release 仅保存历史冻结轨迹，新提交的固定 commit/release 以新 manifest 为主入口。",
     )
     _body(
         document,
@@ -1188,7 +1223,7 @@ def _report_boundaries_and_prompts(
     )
     _body(
         document,
-        "这些哈希对应本报告所有百分比、配对计数和案例卡的输入；交付时以 reports/data/hiddenbench-teacher-review-20260820.manifest.json 作为证据入口，报告修订本与生成脚本、自报审计和证据快照固定在同一提交中。旧版 Release 仅保存历史冻结轨迹，不再作为本次修订的唯一入口。",
+        "这些哈希对应本报告所有百分比、配对计数和案例卡的输入；交付时以 reports/data/hiddenbench-teacher-review-20260820-v2.manifest.json 作为证据入口，报告修订本与生成脚本、自报审计和证据快照固定在同一提交中。旧版 Release 仅保存历史冻结轨迹，不再作为本次修订的唯一入口。",
     )
 
     example = closure["prompt_example"]
