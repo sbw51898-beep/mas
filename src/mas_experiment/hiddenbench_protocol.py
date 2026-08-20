@@ -7,9 +7,14 @@ from typing import Any, Protocol
 
 from mas_experiment.audit import current_git_commit
 from mas_experiment.hiddenbench_data import HiddenBenchTask
+from mas_experiment.hiddenbench_atomic_disclosure import (
+    append_reveal_all_block,
+    decompose_private_facts,
+)
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS,
     HiddenBenchMessage,
+    HiddenBenchAssignment,
     HiddenBenchRawRun,
     HiddenBenchVote,
     PromptCompletion,
@@ -22,6 +27,12 @@ from mas_experiment.hiddenbench_prompts import (
     build_hidden_system_prompt,
     build_vote_repair_prompt,
     build_vote_user_prompt,
+)
+from mas_experiment.hiddenbench_shadow_voting import (
+    ShadowVoteCheckpoint,
+    ShadowVotingRun,
+    collect_shadow_votes,
+    evaluate_early_stop,
 )
 
 
@@ -212,6 +223,10 @@ def _configuration_fingerprint(
     seed: int,
     discussion_rounds: int,
     assignment: Any,
+    disclosure_first: bool = False,
+    mechanical_reveal_all: bool = False,
+    mechanical_global_reveal_round_one: bool = False,
+    collect_round_shadow_votes: bool = False,
 ) -> str:
     payload = {
         "task": task.model_dump(mode="json"),
@@ -220,6 +235,12 @@ def _configuration_fingerprint(
         "assignment": assignment.model_dump(mode="json"),
         "agent_ids": AGENT_IDS,
         "prompt_version": PROMPT_VERSION,
+        "disclosure_first": disclosure_first,
+        "mechanical_reveal_all": mechanical_reveal_all,
+        "mechanical_global_reveal_round_one": (
+            mechanical_global_reveal_round_one
+        ),
+        "collect_round_shadow_votes": collect_round_shadow_votes,
     }
     serialized = json.dumps(
         payload,
@@ -256,16 +277,31 @@ async def run_hiddenbench_task(
     *,
     seed: int,
     discussion_rounds: int = 15,
-) -> HiddenBenchRawRun:
-    if discussion_rounds != 15:
+    disclosure_first: bool = False,
+    mechanical_reveal_all: bool = False,
+    mechanical_global_reveal_round_one: bool = False,
+    collect_round_shadow_votes: bool = False,
+    assignment: HiddenBenchAssignment | None = None,
+) -> HiddenBenchRawRun | ShadowVotingRun:
+    if discussion_rounds not in (3, 4, 8, 15):
         raise ValueError(
-            "faithful HiddenBench baseline requires 15 discussion rounds"
+            "discussion_rounds must be 3, 4, 8 or 15 "
+            "(12/16/32/60 messages)"
         )
-    assignment = assign_hidden_information(task, seed=seed)
+    if mechanical_reveal_all and mechanical_global_reveal_round_one:
+        raise ValueError(
+            "owner reveal and global round-one reveal are mutually exclusive"
+        )
+    resolved_assignment = assignment or assign_hidden_information(task, seed=seed)
+    if resolved_assignment.task_id != task.id:
+        raise ValueError("assignment task ID mismatch")
+    if resolved_assignment.seed != seed:
+        raise ValueError("assignment seed mismatch")
+    atomic_facts = decompose_private_facts(resolved_assignment)
     hidden_system_prompts = {
         agent_id: build_hidden_system_prompt(
             task,
-            assignment,
+            resolved_assignment,
             agent_id,
         )
         for agent_id in AGENT_IDS
@@ -295,11 +331,15 @@ async def run_hiddenbench_task(
             ) from error
 
     messages: list[HiddenBenchMessage] = []
+    shadow_checkpoints: list[ShadowVoteCheckpoint] = []
     for round_index in range(1, discussion_rounds + 1):
         for agent_id in AGENT_IDS:
             turn_index = len(messages)
             visible_messages = tuple(messages)
-            user_prompt = build_discussion_user_prompt(visible_messages)
+            user_prompt = build_discussion_user_prompt(
+                visible_messages,
+                disclosure_first=disclosure_first and round_index == 1,
+            )
             try:
                 completion = await provider.complete(
                     agent_id=agent_id,
@@ -319,6 +359,33 @@ async def run_hiddenbench_task(
                     f"task {task.id} discussion returned empty text for "
                     f"{agent_id} at round {round_index}, turn {turn_index}"
                 )
+            appended_fact_ids: tuple[str, ...] = ()
+            if mechanical_global_reveal_round_one and round_index == 1:
+                content, appended_fact_ids = append_reveal_all_block(
+                    content,
+                    atomic_facts,
+                )
+            elif mechanical_reveal_all and round_index == 1:
+                owner_facts = tuple(
+                    fact
+                    for fact in atomic_facts
+                    if fact.owner_agent_id == agent_id
+                )
+                content, appended_fact_ids = append_reveal_all_block(
+                    content,
+                    owner_facts,
+                )
+            message_metadata = dict(completion.provider_metadata)
+            message_metadata.update(
+                {
+                    "mechanical_reveal_all": bool(appended_fact_ids),
+                    "global_reveal_round_one": bool(
+                        mechanical_global_reveal_round_one
+                        and appended_fact_ids
+                    ),
+                    "appended_fact_ids": list(appended_fact_ids),
+                }
+            )
             messages.append(
                 HiddenBenchMessage(
                     message_id=_message_id(
@@ -338,7 +405,18 @@ async def run_hiddenbench_task(
                     ),
                     system_prompt=hidden_system_prompts[agent_id],
                     user_prompt=user_prompt,
-                    provider_metadata=completion.provider_metadata,
+                    provider_metadata=message_metadata,
+                )
+            )
+        if collect_round_shadow_votes:
+            shadow_checkpoints.append(
+                await collect_shadow_votes(
+                    task,
+                    provider,
+                    system_prompts=hidden_system_prompts,
+                    public_history=tuple(messages),
+                    round_index=round_index,
+                    seed=seed,
                 )
             )
 
@@ -397,25 +475,55 @@ async def run_hiddenbench_task(
         task,
         seed=seed,
         discussion_rounds=discussion_rounds,
-        assignment=assignment,
+        assignment=resolved_assignment,
+        disclosure_first=disclosure_first,
+        mechanical_reveal_all=mechanical_reveal_all,
+        mechanical_global_reveal_round_one=(
+            mechanical_global_reveal_round_one
+        ),
+        collect_round_shadow_votes=collect_round_shadow_votes,
     )
     all_items = (
         *pre_votes,
         *messages,
+        *(
+            vote
+            for checkpoint in shadow_checkpoints
+            for vote in checkpoint.votes
+        ),
         *post_votes,
         *full_votes,
     )
-    return HiddenBenchRawRun(
+    raw = HiddenBenchRawRun(
         run_id=hashlib.sha256(
             f"{fingerprint}|raw".encode("utf-8")
         ).hexdigest()[:16],
         task=task,
-        assignment=assignment,
+        assignment=resolved_assignment,
         hidden_pre_votes=tuple(pre_votes),
         discussion_messages=tuple(messages),
         hidden_post_votes=tuple(post_votes),
         full_profile_votes=tuple(full_votes),
-        provider_metadata=_aggregate_run_metadata(all_items),
+        provider_metadata={
+            **_aggregate_run_metadata(all_items),
+            "mechanical_reveal_all": mechanical_reveal_all,
+            "global_reveal_round_one": (
+                mechanical_global_reveal_round_one
+            ),
+            "shadow_vote_checkpoints": len(shadow_checkpoints),
+        },
         configuration_fingerprint=fingerprint,
         code_commit=current_git_commit(),
+    )
+    if not collect_round_shadow_votes:
+        return raw
+    return ShadowVotingRun(
+        run=raw,
+        shadow_checkpoints=tuple(shadow_checkpoints),
+        early_stop=evaluate_early_stop(
+            tuple(shadow_checkpoints),
+            final_votes=raw.hidden_post_votes,
+            correct_answer=task.correct_answer,
+            total_public_messages=len(raw.discussion_messages),
+        ),
     )

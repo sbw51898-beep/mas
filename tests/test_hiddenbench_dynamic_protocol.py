@@ -8,6 +8,7 @@ import pytest
 
 from mas_experiment.hiddenbench_data import load_hiddenbench_task
 from mas_experiment.hiddenbench_domain import AGENT_IDS, assign_hidden_information
+from mas_experiment.hiddenbench_atomic_disclosure import decompose_private_facts
 from mas_experiment.hiddenbench_dynamic_domain import load_dynamic_pilot_config
 from mas_experiment.hiddenbench_dynamic_protocol import (
     run_hiddenbench_dynamic_task,
@@ -115,3 +116,38 @@ async def test_assignment_mismatch_fails_before_provider_call() -> None:
         )
 
     assert provider.calls == []
+
+
+@pytest.mark.asyncio
+async def test_dynamic_protocol_mechanically_reveals_on_first_speech() -> None:
+    dynamic = await run_hiddenbench_dynamic_task(
+        TASK,
+        ScriptedPromptProvider(protocol_script()),
+        seed=CONFIG.base_seed,
+        assignment=ASSIGNMENT,
+        baseline_run_id="frozen-run",
+        config=CONFIG,
+        mechanical_reveal_all=True,
+    )
+
+    facts = decompose_private_facts(ASSIGNMENT)
+    for agent_id in AGENT_IDS:
+        agent_messages = [
+            message
+            for message in dynamic.run.discussion_messages
+            if message.agent_id == agent_id
+        ]
+        owner_facts = [
+            fact for fact in facts if fact.owner_agent_id == agent_id
+        ]
+        assert all(
+            fact.text in agent_messages[0].content for fact in owner_facts
+        )
+        assert agent_messages[0].provider_metadata[
+            "mechanical_reveal_all"
+        ] is True
+        assert all(
+            message.provider_metadata["mechanical_reveal_all"] is False
+            for message in agent_messages[1:]
+        )
+    assert dynamic.run.provider_metadata["mechanical_reveal_all"] is True

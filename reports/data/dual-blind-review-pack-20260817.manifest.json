@@ -1,0 +1,17 @@
+{
+  "schema_version": "hiddenbench-human-dual-blind-pack-v1",
+  "source_queue": "artifacts/hiddenbench-stability-20260729.blind-review.queue.csv",
+  "source_queue_sha256": "d2ffc096cb0452bb96719cfc2f9618f9372522150d3f9e596d5720dbc023a305",
+  "case_count": 144,
+  "reviewer_a": {
+    "path": "盲审签核表_审阅者A_2026-08-17.xlsx",
+    "order_seed": 2026081701,
+    "blind_ids_sha256": "fb18feb73dcb681ed50d8e3c9ce0d84e92832e765f68e01226fbcb5881cbe61c"
+  },
+  "reviewer_b": {
+    "path": "盲审签核表_审阅者B_2026-08-17.xlsx",
+    "order_seed": 2026081702,
+    "blind_ids_sha256": "94adcf9bf4e636b3b22b9486a406b92c766c459df310adde19c6972997c3e2a3"
+  },
+  "blindness_boundary": "Neither workbook contains AI disclosure labels, rule labels, or prior reviewer labels."
+}

@@ -27,6 +27,9 @@ HIDDENBENCH_SCRIPT = (
 STABILITY_CONFIG = (
     ROOT / "configs/hiddenbench-ai-disclosure-stability.json"
 )
+CONFIRMATORY_CONFIG = (
+    ROOT / "configs/hiddenbench-confirmatory-20260804.json"
+)
 
 
 class FailingInitialProvider(DeterministicProvider):
@@ -48,6 +51,46 @@ class FailingInitialProvider(DeterministicProvider):
             visible_messages=visible_messages,
             seed=seed,
         )
+
+
+def test_confirmatory_preflight_validates_matrix_without_api_calls() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "confirmatory-preflight",
+            "--config",
+            str(CONFIRMATORY_CONFIG),
+            "--dataset",
+            str(ROOT / "data/hiddenbench/benchmark.json"),
+            "--repo",
+            str(ROOT),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "expected runs=210" in result.output
+    assert "tasks=1,2,3" in result.output
+    assert "provider=deepseek-v4-flash" in result.output
+
+
+def test_confirmatory_run_resume_and_gate_commands_are_registered() -> None:
+    for command in (
+        "run-hiddenbench-confirmatory",
+        "resume-hiddenbench-confirmatory",
+        "gate-hiddenbench-confirmatory",
+    ):
+        result = runner.invoke(app, [command, "--help"])
+        assert result.exit_code == 0, result.output
+
+
+def test_official_reveal_supplement_commands_are_registered() -> None:
+    for command in (
+        "run-hiddenbench-official-reveal-supplement",
+        "resume-hiddenbench-official-reveal-supplement",
+        "gate-hiddenbench-official-reveal-supplement",
+    ):
+        result = runner.invoke(app, [command, "--help"])
+        assert result.exit_code == 0, result.output
 
 
 async def test_stability_offline_provider_returns_valid_outputs() -> None:

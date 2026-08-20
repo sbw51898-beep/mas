@@ -70,3 +70,17 @@ def test_current_git_commit_normalizes_git_output(monkeypatch) -> None:
     )
 
     assert current_git_commit() == "abcdef1234"
+
+
+def test_git_commands_decode_output_as_utf8_on_windows(monkeypatch, tmp_path) -> None:
+    captured = {}
+
+    def fake_run(*args, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(returncode=0, stdout="?? 中文报告.docx\n", stderr="")
+
+    monkeypatch.setattr(audit.subprocess, "run", fake_run)
+
+    assert audit._git(tmp_path, "status", "--porcelain=v1") == "?? 中文报告.docx"
+    assert captured["encoding"] == "utf-8"
+    assert captured["errors"] == "strict"

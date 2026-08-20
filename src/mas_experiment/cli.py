@@ -14,6 +14,8 @@ import typer
 from mas_experiment.audit import (
     configuration_fingerprint,
     current_git_commit,
+    inspect_git_worktree,
+    require_clean_confirmatory_state,
     write_sha256_manifest,
 )
 from mas_experiment.datasets import (
@@ -37,6 +39,27 @@ from mas_experiment.hiddenbench_data import (
     HiddenBenchTask,
     load_hiddenbench_task,
     load_hiddenbench_tasks,
+)
+from mas_experiment.hiddenbench_confirmatory_domain import (
+    load_confirmatory_config,
+    validate_confirmatory_tasks,
+)
+from mas_experiment.hiddenbench_confirmatory_gate import (
+    build_confirmatory_gate,
+)
+from mas_experiment.hiddenbench_confirmatory_study import (
+    audit_confirmatory_records,
+    read_confirmatory_audits,
+    read_confirmatory_records,
+    run_confirmatory_study,
+)
+from mas_experiment.hiddenbench_official_reveal_gate import (
+    build_official_reveal_gate,
+)
+from mas_experiment.hiddenbench_official_reveal_supplement import (
+    load_official_reveal_config,
+    read_official_reveal_records,
+    run_official_reveal_supplement,
 )
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS as HIDDENBENCH_AGENT_IDS,
@@ -83,6 +106,32 @@ from mas_experiment.hiddenbench_stability_protocol import (
 from mas_experiment.hiddenbench_stability_reporting import (
     StabilityBundlePaths,
     write_stability_bundle,
+)
+from mas_experiment.hiddenbench_structured_protocol import (
+    StructuredStudyConfig,
+    load_structured_config,
+)
+from mas_experiment.hiddenbench_structured_study import (
+    StructuredGate,
+    StructuredRunRecord,
+    build_structured_gate,
+    read_completed_study_records as read_structured_records,
+    run_structured_study,
+)
+from mas_experiment.hiddenbench_structured_reporting import (
+    StructuredBundlePaths,
+    write_structured_bundle,
+)
+from mas_experiment.hiddenbench_contrast_protocol import (
+    ContrastStudyConfig,
+    load_contrast_config,
+)
+from mas_experiment.hiddenbench_contrast_study import (
+    ContrastGate,
+    ContrastRunRecord,
+    build_contrast_gate,
+    read_completed_study_records as read_contrast_records,
+    run_contrast_study,
 )
 from mas_experiment.orchestrations import (
     prepare_initial_state,
@@ -149,6 +198,12 @@ HIDDENBENCH_DYNAMIC_CONFIG = Path(
 )
 HIDDENBENCH_STABILITY_CONFIG = Path(
     "configs/hiddenbench-ai-disclosure-stability.json"
+)
+HIDDENBENCH_STRUCTURED_CONFIG = Path(
+    "configs/hiddenbench-structured-20260802.json"
+)
+HIDDENBENCH_CONTRAST_CONFIG = Path(
+    "configs/hiddenbench-contrast-20260803.json"
 )
 
 
@@ -1048,7 +1103,10 @@ async def _run_hiddenbench_stability(
         resume=resume,
         requested_pairs=requested_pairs,
     )
-    records = read_completed_study_records(output)
+    records = read_completed_study_records(
+        output,
+        conditions=set(config.conditions),
+    )
     if smoke:
         allowed = {
             StudyKey(
@@ -1134,6 +1192,291 @@ async def _run_hiddenbench_stability(
         selector_llm_calls=0,
     )
     return counts, paths
+
+
+async def _audit_structured_records(
+    *,
+    records: tuple[StructuredRunRecord, ...],
+    config: StructuredStudyConfig,
+    audit_path: Path,
+    offline: bool,
+    settings: DeepSeekSettings | None,
+    resume: bool,
+) -> tuple[DisclosureAudit, ...]:
+    existing = (
+        _read_disclosure_audits(audit_path)
+        if resume
+        else ()
+    )
+    order = {
+        record.key.value: index
+        for index, record in enumerate(records)
+    }
+    by_key = {
+        audit.study_key.value: audit for audit in existing
+    }
+    unknown = set(by_key) - set(order)
+    if unknown:
+        raise ValueError(
+            f"audit file contains unknown keys: {sorted(unknown)}"
+        )
+    semaphore = asyncio.Semaphore(config.judge_workers)
+    write_lock = asyncio.Lock()
+
+    async def audit_one(record: StructuredRunRecord) -> None:
+        if record.key.value in by_key:
+            return
+        async with semaphore:
+            audit = await audit_run_disclosure(
+                record.run,
+                provider=_stability_provider_factory(
+                    offline=offline,
+                    settings=settings,
+                ),
+                study_key=StudyKey(
+                    task_id=record.key.task_id,
+                    condition="structured",
+                    repetition=record.key.repetition,
+                ),
+                judge_model=(
+                    "stability-offline-v1"
+                    if offline
+                    else config.judge_model
+                ),
+                judge_prompt_version=config.judge_prompt_version,
+                seed=record.pair_seed,
+            )
+        async with write_lock:
+            by_key[record.key.value] = audit
+            _atomic_write_disclosure_audits(
+                audit_path,
+                tuple(by_key.values()),
+                order,
+            )
+
+    await asyncio.gather(*(audit_one(record) for record in records))
+    return tuple(
+        by_key[record.key.value] for record in records
+    )
+
+
+async def _run_hiddenbench_structured(
+    *,
+    config_path: Path,
+    output: Path,
+    offline: bool,
+    resume: bool,
+    skip_ai_judge: bool,
+    experiment_workers: int | None,
+    judge_workers: int | None,
+) -> tuple[StructuredBundlePaths | None, int, int]:
+    config = load_structured_config(config_path)
+    updates: dict[str, int] = {}
+    if experiment_workers is not None:
+        updates["experiment_workers"] = experiment_workers
+    if judge_workers is not None:
+        updates["judge_workers"] = judge_workers
+    if updates:
+        config = StructuredStudyConfig.model_validate(
+            {**config.model_dump(mode="json"), **updates}
+        )
+    all_tasks = load_hiddenbench_tasks(
+        HIDDENBENCH_DATASET,
+        expected_sha256=config.dataset_sha256,
+    )
+    tasks = tuple(
+        task for task in all_tasks if task.id in config.task_ids
+    )
+    settings = None if offline else DeepSeekSettings.from_env()
+    await run_structured_study(
+        tasks=tasks,
+        config=config,
+        provider_factory=lambda: _stability_provider_factory(
+            offline=offline,
+            settings=settings,
+        ),
+        output=output,
+        resume=resume,
+    )
+    records = read_structured_records(output)
+    formal_requests = sum(
+        record.run.metrics.api_requests for record in records
+    )
+    if skip_ai_judge:
+        return None, len(records), formal_requests
+    audit_path = output.with_suffix(".ai-disclosure.jsonl")
+    audits = await _audit_structured_records(
+        records=records,
+        config=config,
+        audit_path=audit_path,
+        offline=offline,
+        settings=settings,
+        resume=resume,
+    )
+    gate = build_structured_gate(
+        config,
+        records,
+        audits,
+        dataset_path=HIDDENBENCH_DATASET,
+    )
+    if not gate.passed:
+        raise RuntimeError("structured study gate failed")
+    paths = write_structured_bundle(
+        config=config,
+        records=records,
+        audits=audits,
+        gate=gate,
+        output=output,
+    )
+    audit_requests = sum(
+        int(audit.provider_metadata.get("api_requests", 0))
+        for audit in audits
+    )
+    return paths, len(records), formal_requests + audit_requests
+
+
+async def _audit_contrast_fixed_conditions(
+    *,
+    records: tuple[ContrastRunRecord, ...],
+    config: ContrastStudyConfig,
+    audit_path: Path,
+    offline: bool,
+    settings: DeepSeekSettings | None,
+    resume: bool,
+) -> tuple[DisclosureAudit, ...]:
+    fixed12 = tuple(
+        record
+        for record in records
+        if record.key.condition in ("fixed-4", "fixed-8", "fixed-12")
+    )
+    existing = (
+        _read_disclosure_audits(audit_path)
+        if resume
+        else ()
+    )
+    order = {
+        record.key.value: index
+        for index, record in enumerate(fixed12)
+    }
+    by_key = {
+        audit.study_key.value: audit for audit in existing
+    }
+    unknown = set(by_key) - set(order)
+    if unknown:
+        raise ValueError(
+            f"audit file contains unknown keys: {sorted(unknown)}"
+        )
+    semaphore = asyncio.Semaphore(config.judge_workers)
+    write_lock = asyncio.Lock()
+
+    async def audit_one(record: ContrastRunRecord) -> None:
+        if record.key.value in by_key:
+            return
+        async with semaphore:
+            audit = await audit_run_disclosure(
+                record.run,
+                provider=_stability_provider_factory(
+                    offline=offline,
+                    settings=settings,
+                ),
+                study_key=StudyKey(
+                    task_id=record.key.task_id,
+                    condition=record.key.condition,
+                    repetition=record.key.repetition,
+                ),
+                judge_model=(
+                    "stability-offline-v1"
+                    if offline
+                    else config.judge_model
+                ),
+                judge_prompt_version=config.judge_prompt_version,
+                seed=record.pair_seed,
+            )
+        async with write_lock:
+            by_key[record.key.value] = audit
+            _atomic_write_disclosure_audits(
+                audit_path,
+                tuple(by_key.values()),
+                order,
+            )
+
+    await asyncio.gather(*(audit_one(record) for record in fixed12))
+    return tuple(
+        by_key[record.key.value] for record in fixed12
+    )
+
+
+async def _run_hiddenbench_contrast(
+    *,
+    config_path: Path,
+    output: Path,
+    offline: bool,
+    resume: bool,
+    skip_ai_judge: bool,
+    experiment_workers: int | None,
+    judge_workers: int | None,
+) -> tuple[Path | None, int, int]:
+    config = load_contrast_config(config_path)
+    updates: dict[str, int] = {}
+    if experiment_workers is not None:
+        updates["experiment_workers"] = experiment_workers
+    if judge_workers is not None:
+        updates["judge_workers"] = judge_workers
+    if updates:
+        config = ContrastStudyConfig.model_validate(
+            {**config.model_dump(mode="json"), **updates}
+        )
+    all_tasks = load_hiddenbench_tasks(
+        HIDDENBENCH_DATASET,
+        expected_sha256=config.dataset_sha256,
+    )
+    tasks = tuple(
+        task for task in all_tasks if task.id in config.task_ids
+    )
+    settings = None if offline else DeepSeekSettings.from_env()
+    await run_contrast_study(
+        tasks=tasks,
+        config=config,
+        provider_factory=lambda: _stability_provider_factory(
+            offline=offline,
+            settings=settings,
+        ),
+        output=output,
+        resume=resume,
+    )
+    records = read_contrast_records(output)
+    formal_requests = sum(
+        record.run.metrics.api_requests for record in records
+    )
+    if skip_ai_judge:
+        return None, len(records), formal_requests
+    audit_path = output.with_suffix(".ai-disclosure.jsonl")
+    audits = await _audit_contrast_fixed_conditions(
+        records=records,
+        config=config,
+        audit_path=audit_path,
+        offline=offline,
+        settings=settings,
+        resume=resume,
+    )
+    gate = build_contrast_gate(
+        config,
+        records,
+        audits,
+        dataset_path=HIDDENBENCH_DATASET,
+    )
+    if not gate.passed:
+        raise RuntimeError("contrast study gate failed")
+    gate_path = output.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+    )
+    audit_requests = sum(
+        int(audit.provider_metadata.get("api_requests", 0))
+        for audit in audits
+    )
+    return gate_path, len(records), formal_requests + audit_requests
 
 
 async def _run_experiments(
@@ -1603,6 +1946,152 @@ def hiddenbench_stability_command(
     )
 
 
+@app.command("hiddenbench-structured")
+def hiddenbench_structured_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination structured-study JSONL file."),
+    ] = Path("artifacts/hiddenbench-structured-20260802.jsonl"),
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked structured-study configuration."),
+    ] = HIDDENBENCH_STRUCTURED_CONFIG,
+    offline: Annotated[
+        bool,
+        typer.Option(
+            "--offline",
+            help="Use deterministic zero-cost smoke providers.",
+        ),
+    ] = False,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume/--no-resume",
+            help="Resume complete runs and completed AI audits.",
+        ),
+    ] = True,
+    experiment_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent task/repetition workers.",
+        ),
+    ] = None,
+    judge_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent disclosure-audit workers.",
+        ),
+    ] = None,
+    skip_ai_judge: Annotated[
+        bool,
+        typer.Option(
+            help="Run discussions only; do not produce a formal bundle.",
+        ),
+    ] = False,
+) -> None:
+    """Run the paper's Exchange-then-Decide structured protocol."""
+    paths, records, total_requests = asyncio.run(
+        _run_hiddenbench_structured(
+            config_path=config,
+            output=output,
+            offline=offline,
+            resume=resume,
+            skip_ai_judge=skip_ai_judge,
+            experiment_workers=experiment_workers,
+            judge_workers=judge_workers,
+        )
+    )
+    if paths is None:
+        typer.echo(
+            f"Completed discussions only -> {output}; "
+            f"records={records}; AI judge skipped; "
+            "no formal gate or bundle was produced."
+        )
+        return
+    typer.echo(
+        f"HiddenBench structured gate passed -> {paths.runs}; "
+        f"records={records}; total API requests={total_requests}; "
+        f"summary={paths.summary}; report={paths.report}; "
+        f"gate={paths.gate}; manifest={paths.manifest}"
+    )
+
+
+@app.command("hiddenbench-contrast")
+def hiddenbench_contrast_command(
+    output: Annotated[
+        Path,
+        typer.Option(help="Destination contrast-study JSONL file."),
+    ] = Path("artifacts/hiddenbench-contrast-20260803.jsonl"),
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked contrast-study configuration."),
+    ] = HIDDENBENCH_CONTRAST_CONFIG,
+    offline: Annotated[
+        bool,
+        typer.Option(
+            "--offline",
+            help="Use deterministic zero-cost smoke providers.",
+        ),
+    ] = False,
+    resume: Annotated[
+        bool,
+        typer.Option(
+            "--resume/--no-resume",
+            help="Resume complete runs and completed AI audits.",
+        ),
+    ] = True,
+    experiment_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent task/repetition workers.",
+        ),
+    ] = None,
+    judge_workers: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=16,
+            help="Override concurrent disclosure-audit workers.",
+        ),
+    ] = None,
+    skip_ai_judge: Annotated[
+        bool,
+        typer.Option(
+            help="Run discussions only; do not produce a formal gate.",
+        ),
+    ] = False,
+) -> None:
+    """Run single-agent and fixed-12 baselines against the governance arms."""
+    gate_path, records, total_requests = asyncio.run(
+        _run_hiddenbench_contrast(
+            config_path=config,
+            output=output,
+            offline=offline,
+            resume=resume,
+            skip_ai_judge=skip_ai_judge,
+            experiment_workers=experiment_workers,
+            judge_workers=judge_workers,
+        )
+    )
+    if gate_path is None:
+        typer.echo(
+            f"Completed contrast runs only -> {output}; "
+            f"records={records}; AI judge skipped; no gate produced."
+        )
+        return
+    typer.echo(
+        f"HiddenBench contrast gate passed -> {output}; "
+        f"records={records}; total API requests={total_requests}; "
+        f"gate={gate_path}"
+    )
+
+
 @app.command("summarize")
 def summarize_command(path: Path) -> None:
     records = read_results(path)
@@ -1626,6 +2115,438 @@ def summarize_command(path: Path) -> None:
             f"{mean(item['pairwise_disagreement'] for item in metrics):.3f}\t"
             f"{mean(item['answer_entropy'] for item in metrics):.3f}"
         )
+
+
+@app.command("confirmatory-preflight")
+def confirmatory_preflight_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Git worktree to inspect without changing it."),
+    ] = Path("."),
+) -> None:
+    """Validate confirmatory scope and report Git state without API calls."""
+    study = load_confirmatory_config(config)
+    tasks = load_hiddenbench_tasks(
+        dataset,
+        expected_sha256=study.dataset_sha256,
+    )
+    selected = validate_confirmatory_tasks(tasks)
+    git_state = inspect_git_worktree(repo)
+    typer.echo(
+        "Confirmatory preflight: "
+        f"tasks={','.join(str(task.id) for task in selected)}; "
+        f"conditions={len(study.conditions)}; "
+        f"expected runs={study.expected_run_count}; "
+        f"provider={study.provider.model}; "
+        f"commit={git_state.commit}; "
+        f"branch={git_state.branch or '<detached>'}; "
+        f"dirty={str(git_state.dirty).lower()}; "
+        "API calls=0"
+    )
+
+
+async def _run_confirmatory_pipeline(
+    *,
+    config_path: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> tuple[int, int, Path]:
+    study = load_confirmatory_config(config_path)
+    tasks = load_hiddenbench_tasks(
+        dataset,
+        expected_sha256=study.dataset_sha256,
+    )
+    validate_confirmatory_tasks(tasks)
+    if offline:
+        provider_factory = StabilityOfflineProvider
+    else:
+        require_clean_confirmatory_state(repo, study.frozen_code_commit)
+        settings = DeepSeekSettings.from_env()
+
+        def provider_factory() -> MAFPromptProvider:
+            return MAFPromptProvider(settings)
+
+    await run_confirmatory_study(
+        tasks=tasks,
+        config=study,
+        provider_factory=provider_factory,
+        output=output,
+        resume=resume,
+    )
+    records = read_confirmatory_records(output, config=study)
+    audit_output = output.with_suffix(".audits.jsonl")
+    await audit_confirmatory_records(
+        records=records,
+        config=study,
+        provider_factory=provider_factory,
+        output=audit_output,
+        resume=resume,
+    )
+    audits = read_confirmatory_audits(audit_output, config=study)
+    gate = build_confirmatory_gate(
+        study,
+        records,
+        audits,
+        dataset_path=dataset,
+    )
+    gate_path = output.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise RuntimeError(f"confirmatory gate failed: {failed}")
+    return len(records), len(audits), gate_path
+
+
+def _confirmatory_command(
+    *,
+    config: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> None:
+    records, audits, gate = asyncio.run(
+        _run_confirmatory_pipeline(
+            config_path=config,
+            dataset=dataset,
+            output=output,
+            repo=repo,
+            resume=resume,
+            offline=offline,
+        )
+    )
+    typer.echo(
+        "HiddenBench confirmatory gate passed; "
+        f"records={records}; audits={audits}; runs={output}; "
+        f"audit_file={output.with_suffix('.audits.jsonl')}; gate={gate}"
+    )
+
+
+@app.command("run-hiddenbench-confirmatory")
+def run_hiddenbench_confirmatory_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only confirmatory run JSONL."),
+    ] = Path("artifacts/hiddenbench-confirmatory-20260804.jsonl"),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Start a new seven-condition confirmatory matrix."""
+    _confirmatory_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=False,
+        offline=offline,
+    )
+
+
+@app.command("resume-hiddenbench-confirmatory")
+def resume_hiddenbench_confirmatory_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only confirmatory run JSONL."),
+    ] = Path("artifacts/hiddenbench-confirmatory-20260804.jsonl"),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Resume only validated complete confirmatory pairs and audits."""
+    _confirmatory_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=True,
+        offline=offline,
+    )
+
+
+@app.command("gate-hiddenbench-confirmatory")
+def gate_hiddenbench_confirmatory_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked confirmatory-study JSON configuration."),
+    ] = Path("configs/hiddenbench-confirmatory-20260804.json"),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="Confirmatory run JSONL."),
+    ] = Path("artifacts/hiddenbench-confirmatory-20260804.jsonl"),
+) -> None:
+    """Recompute the confirmatory integrity gate without API calls."""
+    study = load_confirmatory_config(config)
+    records = read_confirmatory_records(input_path, config=study)
+    audits = read_confirmatory_audits(
+        input_path.with_suffix(".audits.jsonl"),
+        config=study,
+    )
+    gate = build_confirmatory_gate(
+        study,
+        records,
+        audits,
+        dataset_path=dataset,
+    )
+    gate_path = input_path.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise typer.BadParameter(f"confirmatory gate failed: {failed}")
+    typer.echo(
+        f"Confirmatory gate passed; API calls=0; gate={gate_path}"
+    )
+
+
+async def _run_official_reveal_supplement_pipeline(
+    *,
+    config_path: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> tuple[int, Path]:
+    study = load_official_reveal_config(config_path)
+    tasks = load_hiddenbench_tasks(
+        dataset,
+        expected_sha256=study.dataset_sha256,
+    )
+    validate_confirmatory_tasks(tasks)
+    if offline:
+        provider_factory = StabilityOfflineProvider
+    else:
+        require_clean_confirmatory_state(repo, study.frozen_code_commit)
+        settings = DeepSeekSettings.from_env()
+
+        def provider_factory() -> MAFPromptProvider:
+            return MAFPromptProvider(settings)
+
+    execution = await run_official_reveal_supplement(
+        tasks=tasks,
+        config=study,
+        provider_factory=provider_factory,
+        output=output,
+        resume=resume,
+    )
+    records = read_official_reveal_records(output, config=study)
+    gate = build_official_reveal_gate(
+        study,
+        records,
+        dataset_path=dataset,
+    )
+    gate_path = output.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise RuntimeError(f"official reveal supplement gate failed: {failed}")
+    return execution.executed_runs, gate_path
+
+
+def _official_reveal_supplement_command(
+    *,
+    config: Path,
+    dataset: Path,
+    output: Path,
+    repo: Path,
+    resume: bool,
+    offline: bool,
+) -> None:
+    executed, gate = asyncio.run(
+        _run_official_reveal_supplement_pipeline(
+            config_path=config,
+            dataset=dataset,
+            output=output,
+            repo=repo,
+            resume=resume,
+            offline=offline,
+        )
+    )
+    typer.echo(
+        "Official Reveal-All supplement gate passed; "
+        f"executed={executed}; runs={output}; gate={gate}"
+    )
+
+
+@app.command("run-hiddenbench-official-reveal-supplement")
+def run_hiddenbench_official_reveal_supplement_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked official Reveal-All supplement config."),
+    ] = Path(
+        "configs/hiddenbench-official-reveal-supplement-20260804.json"
+    ),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only supplement run JSONL."),
+    ] = Path(
+        "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl"
+    ),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Start the official-compatible global Reveal-All supplement."""
+    _official_reveal_supplement_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=False,
+        offline=offline,
+    )
+
+
+@app.command("resume-hiddenbench-official-reveal-supplement")
+def resume_hiddenbench_official_reveal_supplement_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked official Reveal-All supplement config."),
+    ] = Path(
+        "configs/hiddenbench-official-reveal-supplement-20260804.json"
+    ),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    output: Annotated[
+        Path,
+        typer.Option(help="Append-only supplement run JSONL."),
+    ] = Path(
+        "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl"
+    ),
+    repo: Annotated[
+        Path,
+        typer.Option(help="Frozen Git worktree."),
+    ] = Path("."),
+    offline: Annotated[
+        bool,
+        typer.Option("--offline", help="Zero-cost mechanics smoke run."),
+    ] = False,
+) -> None:
+    """Resume the official-compatible global Reveal-All supplement."""
+    _official_reveal_supplement_command(
+        config=config,
+        dataset=dataset,
+        output=output,
+        repo=repo,
+        resume=True,
+        offline=offline,
+    )
+
+
+@app.command("gate-hiddenbench-official-reveal-supplement")
+def gate_hiddenbench_official_reveal_supplement_command(
+    config: Annotated[
+        Path,
+        typer.Option(help="Locked official Reveal-All supplement config."),
+    ] = Path(
+        "configs/hiddenbench-official-reveal-supplement-20260804.json"
+    ),
+    dataset: Annotated[
+        Path,
+        typer.Option(help="Official 65-task HiddenBench snapshot."),
+    ] = Path("data/hiddenbench/benchmark.json"),
+    input_path: Annotated[
+        Path,
+        typer.Option("--input", help="Supplement run JSONL."),
+    ] = Path(
+        "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl"
+    ),
+) -> None:
+    """Recompute the supplement gate without API calls."""
+    study = load_official_reveal_config(config)
+    records = read_official_reveal_records(input_path, config=study)
+    gate = build_official_reveal_gate(
+        study,
+        records,
+        dataset_path=dataset,
+    )
+    gate_path = input_path.with_suffix(".gate.json")
+    gate_path.write_text(
+        gate.model_dump_json(indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    if not gate.passed:
+        failed = ", ".join(
+            name for name, passed in gate.checks.items() if not passed
+        )
+        raise typer.BadParameter(
+            f"official reveal supplement gate failed: {failed}"
+        )
+    typer.echo(
+        f"Official Reveal-All supplement gate passed; API calls=0; gate={gate_path}"
+    )
 
 
 @app.command("maf-smoke")

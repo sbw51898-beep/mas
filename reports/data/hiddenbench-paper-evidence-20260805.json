@@ -1,0 +1,898 @@
+{
+  "schema_version": "hiddenbench-paper-evidence-v1",
+  "paper_title": "基于 MAF 的多智能体私有信息披露机制复现与对比研究",
+  "research_questions": {
+    "RQ1": "完整披露私有信息是否提高 HiddenBench 任务正确率？",
+    "RQ2": "相同发言预算下，动态发言机制是否优于固定轮转？",
+    "RQ3": "多智能体错误共识由哪些信息处理环节造成？"
+  },
+  "totals": {
+    "local_runs": 560,
+    "discussion_vote_requests": 25531,
+    "audit_requests": 397,
+    "model_requests": 25928
+  },
+  "official_global_reveal": {
+    "ID1": "10/10",
+    "ID2": "10/10",
+    "ID3": "10/10"
+  },
+  "official_gpt41": {
+    "baseline": {
+      "by_task": {
+        "1": {
+          "average_accuracy": 0.36666666666666664,
+          "correct_answer": "West City",
+          "false_consensus_rate": 0.6333333333333333,
+          "majority_accuracy": 0.36666666666666664,
+          "runs": 30,
+          "scenario": "evacuation_west_city",
+          "task_id": 1,
+          "unanimous_correct_rate": 0.36666666666666664
+        },
+        "2": {
+          "average_accuracy": 0.13333333333333333,
+          "correct_answer": "North Hill",
+          "false_consensus_rate": 0.8666666666666667,
+          "majority_accuracy": 0.13333333333333333,
+          "runs": 30,
+          "scenario": "evacuation_north_hill",
+          "task_id": 2,
+          "unanimous_correct_rate": 0.13333333333333333
+        },
+        "3": {
+          "average_accuracy": 0.2,
+          "correct_answer": "East Town",
+          "false_consensus_rate": 0.7666666666666667,
+          "majority_accuracy": 0.2,
+          "runs": 30,
+          "scenario": "evacuation_east_town",
+          "task_id": 3,
+          "unanimous_correct_rate": 0.2
+        }
+      },
+      "condition_id": 1,
+      "model": "gpt-4.1",
+      "source": {
+        "bytes": 6534949,
+        "sha256": "b470918c6ef2fa50ca6b237caf4700b37800f30e032416061ade00dedc5cab18",
+        "url": "https://huggingface.co/datasets/YuxuanLi1225/HiddenBench-results/resolve/main/short_and_ablations/results_hidden_short_hidden_short.json"
+      },
+      "total_runs": 90
+    },
+    "reveal_all": {
+      "by_task": {
+        "1": {
+          "average_accuracy": 1.0,
+          "correct_answer": "West City",
+          "false_consensus_rate": 0.0,
+          "majority_accuracy": 1.0,
+          "runs": 10,
+          "scenario": "evacuation_west_city",
+          "task_id": 1,
+          "unanimous_correct_rate": 1.0
+        },
+        "2": {
+          "average_accuracy": 0.9,
+          "correct_answer": "North Hill",
+          "false_consensus_rate": 0.1,
+          "majority_accuracy": 0.9,
+          "runs": 10,
+          "scenario": "evacuation_north_hill",
+          "task_id": 2,
+          "unanimous_correct_rate": 0.9
+        },
+        "3": {
+          "average_accuracy": 1.0,
+          "correct_answer": "East Town",
+          "false_consensus_rate": 0.0,
+          "majority_accuracy": 1.0,
+          "runs": 10,
+          "scenario": "evacuation_east_town",
+          "task_id": 3,
+          "unanimous_correct_rate": 1.0
+        }
+      },
+      "condition_id": 1,
+      "model": "gpt-4.1",
+      "source": {
+        "bytes": 2281875,
+        "sha256": "de2ab0d39ebc6fa61c387cd5e63402924c8745df6fe5bb09bc52a938d52079bc",
+        "url": "https://huggingface.co/datasets/YuxuanLi1225/HiddenBench-results/resolve/main/short_and_ablations/results_hidden_short_reveal_all_hidden_hidden_short_reveal_all_hidden.json"
+      },
+      "total_runs": 30
+    }
+  },
+  "condition_statistics": {
+    "dynamic-60:ID1": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "dynamic-60:ID2": {
+      "rate": 0.2,
+      "runs": 10,
+      "successes": 2,
+      "wilson_95_high": 0.5098375284633583,
+      "wilson_95_low": 0.05668215145437519
+    },
+    "dynamic-60:ID3": {
+      "rate": 0.9,
+      "runs": 10,
+      "successes": 9,
+      "wilson_95_high": 0.9821237869049271,
+      "wilson_95_low": 0.5958499732047615
+    },
+    "dynamic-reveal-all:ID1": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "dynamic-reveal-all:ID2": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "dynamic-reveal-all:ID3": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "fixed-12:ID1": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "fixed-12:ID2": {
+      "rate": 0.2,
+      "runs": 10,
+      "successes": 2,
+      "wilson_95_high": 0.5098375284633583,
+      "wilson_95_low": 0.05668215145437519
+    },
+    "fixed-12:ID3": {
+      "rate": 0.8,
+      "runs": 10,
+      "successes": 8,
+      "wilson_95_high": 0.9433178485456247,
+      "wilson_95_low": 0.49016247153664183
+    },
+    "fixed-60:ID1": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "fixed-60:ID2": {
+      "rate": 0.0,
+      "runs": 10,
+      "successes": 0,
+      "wilson_95_high": 0.2775327998628892,
+      "wilson_95_low": 0.0
+    },
+    "fixed-60:ID3": {
+      "rate": 0.7,
+      "runs": 10,
+      "successes": 7,
+      "wilson_95_high": 0.8922087325936989,
+      "wilson_95_low": 0.39677814746114537
+    },
+    "fixed-reveal-all:ID1": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "fixed-reveal-all:ID2": {
+      "rate": 0.6,
+      "runs": 10,
+      "successes": 6,
+      "wilson_95_high": 0.8318196702937638,
+      "wilson_95_low": 0.31267376973365824
+    },
+    "fixed-reveal-all:ID3": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "official-global-reveal:ID1": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "official-global-reveal:ID2": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "official-global-reveal:ID3": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    },
+    "single-local:ID1": {
+      "rate": 0.2,
+      "runs": 10,
+      "successes": 2,
+      "wilson_95_high": 0.5098375284633583,
+      "wilson_95_low": 0.05668215145437519
+    },
+    "single-local:ID2": {
+      "rate": 0.2,
+      "runs": 10,
+      "successes": 2,
+      "wilson_95_high": 0.5098375284633583,
+      "wilson_95_low": 0.05668215145437519
+    },
+    "single-local:ID3": {
+      "rate": 0.0,
+      "runs": 10,
+      "successes": 0,
+      "wilson_95_high": 0.2775327998628892,
+      "wilson_95_low": 0.0
+    },
+    "structured-12:ID1": {
+      "rate": 0.7,
+      "runs": 10,
+      "successes": 7,
+      "wilson_95_high": 0.8922087325936989,
+      "wilson_95_low": 0.39677814746114537
+    },
+    "structured-12:ID2": {
+      "rate": 0.7,
+      "runs": 10,
+      "successes": 7,
+      "wilson_95_high": 0.8922087325936989,
+      "wilson_95_low": 0.39677814746114537
+    },
+    "structured-12:ID3": {
+      "rate": 1.0,
+      "runs": 10,
+      "successes": 10,
+      "wilson_95_high": 0.9999999999999999,
+      "wilson_95_low": 0.7224672001371107
+    }
+  },
+  "condition_metrics": {
+    "dynamic-60:ID1": {
+      "atomic_disclosure_rate": 0.675,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "dynamic-60:ID2": {
+      "atomic_disclosure_rate": 0.6,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "dynamic-60:ID3": {
+      "atomic_disclosure_rate": 0.9,
+      "false_consensus_rate": 0.1,
+      "majority_accuracy": 0.9,
+      "runs": 10,
+      "unanimous_correct_rate": 0.9,
+      "vote_accuracy": 0.9
+    },
+    "dynamic-reveal-all:ID1": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "dynamic-reveal-all:ID2": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "dynamic-reveal-all:ID3": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-12:ID1": {
+      "atomic_disclosure_rate": 0.675,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-12:ID2": {
+      "atomic_disclosure_rate": 0.55,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "fixed-12:ID3": {
+      "atomic_disclosure_rate": 0.825,
+      "false_consensus_rate": 0.2,
+      "majority_accuracy": 0.8,
+      "runs": 10,
+      "unanimous_correct_rate": 0.8,
+      "vote_accuracy": 0.8
+    },
+    "fixed-60:ID1": {
+      "atomic_disclosure_rate": 0.75,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-60:ID2": {
+      "atomic_disclosure_rate": 0.7,
+      "false_consensus_rate": 1.0,
+      "majority_accuracy": 0.0,
+      "runs": 10,
+      "unanimous_correct_rate": 0.0,
+      "vote_accuracy": 0.0
+    },
+    "fixed-60:ID3": {
+      "atomic_disclosure_rate": 0.8,
+      "false_consensus_rate": 0.2,
+      "majority_accuracy": 0.7,
+      "runs": 10,
+      "unanimous_correct_rate": 0.7,
+      "vote_accuracy": 0.7
+    },
+    "fixed-reveal-all:ID1": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-reveal-all:ID2": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.3,
+      "majority_accuracy": 0.6,
+      "runs": 10,
+      "unanimous_correct_rate": 0.6,
+      "vote_accuracy": 0.625
+    },
+    "fixed-reveal-all:ID3": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "single-local:ID1": {
+      "atomic_disclosure_rate": 0.0,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "single-local:ID2": {
+      "atomic_disclosure_rate": 0.0,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "single-local:ID3": {
+      "atomic_disclosure_rate": 0.0,
+      "false_consensus_rate": 1.0,
+      "majority_accuracy": 0.0,
+      "runs": 10,
+      "unanimous_correct_rate": 0.0,
+      "vote_accuracy": 0.0
+    },
+    "structured-12:ID1": {
+      "atomic_disclosure_rate": 0.975,
+      "false_consensus_rate": 0.3,
+      "majority_accuracy": 0.7,
+      "runs": 10,
+      "unanimous_correct_rate": 0.7,
+      "vote_accuracy": 0.7
+    },
+    "structured-12:ID2": {
+      "atomic_disclosure_rate": 0.825,
+      "false_consensus_rate": 0.3,
+      "majority_accuracy": 0.7,
+      "runs": 10,
+      "unanimous_correct_rate": 0.7,
+      "vote_accuracy": 0.7
+    },
+    "structured-12:ID3": {
+      "atomic_disclosure_rate": 0.975,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    }
+  },
+  "paired_tests": {
+    "fixed-12_vs_structured-12": {
+      "a_only": 4,
+      "b_only": 8,
+      "discordant": 12,
+      "left_successes": 20,
+      "p_value": 0.3876953125,
+      "pairs": 30,
+      "right_successes": 24
+    },
+    "fixed-60_vs_dynamic-60": {
+      "a_only": 0,
+      "b_only": 4,
+      "discordant": 4,
+      "left_successes": 17,
+      "p_value": 0.125,
+      "pairs": 30,
+      "right_successes": 21
+    },
+    "fixed-reveal-all_vs_dynamic-reveal-all": {
+      "a_only": 0,
+      "b_only": 4,
+      "discordant": 4,
+      "left_successes": 26,
+      "p_value": 0.125,
+      "pairs": 30,
+      "right_successes": 30
+    }
+  },
+  "mcnemar_p_values": [
+    0.125,
+    0.125,
+    0.388
+  ],
+  "early_stop": {
+    "candidate_correct": 17,
+    "classifications": {
+      "final-tie": 1,
+      "same-majority": 29
+    },
+    "exceptional_cases": [
+      {
+        "candidate_answer": "North Hill",
+        "candidate_correct": false,
+        "candidate_round": 2,
+        "classification": "final-tie",
+        "final_correct": false,
+        "final_votes": [
+          "North Hill",
+          "West City",
+          "North Hill",
+          "West City"
+        ],
+        "run_id": "04bdebf7a81e1590",
+        "study_key": {
+          "condition": "fixed-60",
+          "repetition": 4,
+          "task_id": 3
+        }
+      }
+    ],
+    "final_correct": 17,
+    "runs": 30
+  },
+  "early_stop_exception": "2-2 final tie",
+  "disclosure_example": {
+    "arithmetic": "3 disclosed / 4 total = 75.0%",
+    "disclosed_count": 3,
+    "disclosure_rate": 0.75,
+    "fact_count": 4,
+    "facts": [
+      {
+        "atomic_index": 0,
+        "fact_id": "atomic-fact:eb3f9f0de5aebcf5103c",
+        "owner_agent_id": "agent-a",
+        "source_packet_index": 0,
+        "task_id": 1,
+        "text": "The walking trails have been closed since last weekend due to fallen trees."
+      },
+      {
+        "atomic_index": 0,
+        "fact_id": "atomic-fact:704d5ab35274338d83a4",
+        "owner_agent_id": "agent-b",
+        "source_packet_index": 1,
+        "task_id": 1,
+        "text": "The supply truck headed to the village from East Town was stuck in the tunnel."
+      },
+      {
+        "atomic_index": 0,
+        "fact_id": "atomic-fact:1073199545da17b8fae6",
+        "owner_agent_id": "agent-c",
+        "source_packet_index": 2,
+        "task_id": 1,
+        "text": "A mudslide just occurred, covering the driveway to North Hill."
+      },
+      {
+        "atomic_index": 0,
+        "fact_id": "atomic-fact:458ee67b4c6d9f038292",
+        "owner_agent_id": "agent-d",
+        "source_packet_index": 3,
+        "task_id": 1,
+        "text": "A massive fire has blocked the supply truck and all other traffic."
+      }
+    ],
+    "judgments": [
+      {
+        "confidence": 1.0,
+        "disclosed": true,
+        "evidence_message_ids": [
+          "9593ff94c4fea030"
+        ],
+        "evidence_quote": "walking trails closed",
+        "fact_id": "atomic-fact:eb3f9f0de5aebcf5103c",
+        "owner_agent_id": "agent-a",
+        "reason": "Agent-a mentions walking trails closed in message 9593ff94c4fea030."
+      },
+      {
+        "confidence": 1.0,
+        "disclosed": true,
+        "evidence_message_ids": [
+          "5aff13e394afa239"
+        ],
+        "evidence_quote": "tunnel is blocked",
+        "fact_id": "atomic-fact:704d5ab35274338d83a4",
+        "owner_agent_id": "agent-b",
+        "reason": "Agent-b mentions tunnel blocked in message 5aff13e394afa239."
+      },
+      {
+        "confidence": 1.0,
+        "disclosed": true,
+        "evidence_message_ids": [
+          "02c2eed09438f3c5"
+        ],
+        "evidence_quote": "mudslide blocking North Hill",
+        "fact_id": "atomic-fact:1073199545da17b8fae6",
+        "owner_agent_id": "agent-c",
+        "reason": "Agent-c mentions mudslide blocking North Hill in message 02c2eed09438f3c5."
+      },
+      {
+        "confidence": 1.0,
+        "disclosed": false,
+        "evidence_message_ids": [],
+        "evidence_quote": "",
+        "fact_id": "atomic-fact:458ee67b4c6d9f038292",
+        "owner_agent_id": "agent-d",
+        "reason": "No agent-d message mentions a massive fire blocking the supply truck."
+      }
+    ],
+    "run_id": "4df5f16eb3e43f36",
+    "study_key": {
+      "condition": "dynamic-60",
+      "repetition": 2,
+      "task_id": 1
+    }
+  },
+  "mast_cases": [
+    {
+      "boundary": "confirmed",
+      "disclosure_rate": 0.25,
+      "evidence": [
+        "The walking trails have been closed since last weekend due to fallen trees.",
+        "The supply truck headed to the village from East Town was stuck in the tunnel.",
+        "A massive fire has blocked the supply truck and all other traffic."
+      ],
+      "final_votes": [
+        "West City",
+        "West City",
+        "West City",
+        "West City"
+      ],
+      "interpretation": "At least one owner fact never appeared in an owner-authored public message.",
+      "mast_mode": "FM-2.4",
+      "run_id": "383ab32a67ba98e7",
+      "study_key": {
+        "condition": "fixed-60",
+        "repetition": 0,
+        "task_id": 1
+      }
+    },
+    {
+      "boundary": "candidate-needs-human-causal-coding",
+      "disclosure_rate": 1.0,
+      "evidence": [
+        "29b596fb5240b999",
+        "73bc5d7c5ead572b",
+        "c379f3758e1bdcc4",
+        "9792c22501caf43b"
+      ],
+      "final_votes": [
+        "East Town",
+        "East Town",
+        "East Town",
+        "East Town"
+      ],
+      "interpretation": "All facts were public, yet every final rationale treated the East Town tunnel as clear and the group unanimously chose the wrong answer.",
+      "mast_mode": "FM-2.5",
+      "run_id": "e46521e6691a10ca",
+      "study_key": {
+        "condition": "fixed-reveal-all",
+        "repetition": 1,
+        "task_id": 2
+      }
+    },
+    {
+      "boundary": "not-confirmed",
+      "disclosure_rate": null,
+      "evidence": [],
+      "final_votes": [],
+      "interpretation": "No rationale-vote inconsistency was directly verified; lexical alternative mentions were negated comparisons, not conflicting actions.",
+      "mast_mode": "FM-2.6",
+      "run_id": null,
+      "study_key": null
+    }
+  ],
+  "method_boundaries": {
+    "blind_review": "Codex model-assisted review; not a human gold standard.",
+    "framework": "Microsoft Agent Framework is the Agent/model execution layer; protocols, schedulers, reveal, voting, audits, and gates are project code.",
+    "generation_seed": "Pair seeds control fact assignment only; generation seed was not transmitted to DeepSeek.",
+    "protocol_split": "The earlier owner-by-owner mechanical reveal differs from the official-compatible global first-round Reveal-All supplement.",
+    "selector": "The five-factor dynamic selector is an external centralized scheduler with access to the complete private-fact assignment."
+  },
+  "task_details": [
+    {
+      "correct_answer": "West City",
+      "description": "You are participating in a study, acting as a community leader of a small village surrounded by mountains and rivers. Most villagers own cars, but there are also elderly people and children who may need additional assistance when walking. Earlier today, heavy rain began to fall, and the local government issued a warning about a potential disaster.\nHours ago, you requested relief supplies, but the supply truck has yet to arrive. Now, the rain has temporarily stopped, giving you and the other three community leaders a short window to decide on the safest evacuation route before the rain resumes. You don’t know how much time you have left to make this critical decision.\nYour Task:\nYou will discuss with three other participants, who are also acting as community leaders, to decide where to evacuate. You have three options:\n- West City: Accessible through a bridge over the river.\n- East Town: Accessible through a tunnel on middle ground.\n- North Hill: Accessible through a driveway and walking trails.\nUsually, it takes the same time to reach all three places by car, but some routes may be inaccessible now.\nThere is only one correct evacuation location. After the discussion:\n- If you choose the correct location, you will earn $1.\n- If all other participants also choose the correct location, you will earn an additional $1 (for a total of $2).\nThis means that coordinating with others is critical to maximize your rewards. The chat will at most take 15 minutes. However, the exact time when the chat will end is unknown.",
+      "evidence_chain": "East Town's tunnel is blocked by the stuck supply truck and fire; North Hill's driveway and trails are both blocked; the West City bridge remains passable, leaving West City as the viable route.",
+      "name": "evacuation_west_city",
+      "private_facts": [
+        "The supply truck headed to the village from East Town was stuck in the tunnel.",
+        "A massive fire has blocked the supply truck and all other traffic.",
+        "The walking trails have been closed since last weekend due to fallen trees.",
+        "A mudslide just occurred, covering the driveway to North Hill."
+      ],
+      "shared_information": [
+        "The local government announced that hotels in West City are prepared to accommodate evacuees. While these hotels are fully stocked with food, they may lack medical supplies.",
+        "The mayor of East Town has offered accommodations for any evacuees. She also ensures that volunteers are available to assist them.",
+        "The school at North Hill can serve as a temporary evacuation center, providing a two-week supply of essentials and sleeping space in the gym.",
+        "The river level is still below the bridge to West City."
+      ],
+      "task_id": 1
+    },
+    {
+      "correct_answer": "North Hill",
+      "description": "You are participating in a study, acting as a community leader of a small village surrounded by mountains and rivers. Most villagers own cars, but there are also elderly people and children who may need additional assistance when walking. Earlier today, heavy rain began to fall, and the local government issued a warning about a potential disaster.\nHours ago, you requested relief supplies, but the supply truck has yet to arrive. Now, the rain has temporarily stopped, giving you and the other three community leaders a short window to decide on the safest evacuation route before the rain resumes. You don’t know how much time you have left to make this critical decision.\nYour Task:\nYou will discuss with three other participants, who are also acting as community leaders, to decide where to evacuate. You have three options:\n- West City: Accessible through a bridge over the river.\n- East Town: Accessible through a tunnel on middle ground.\n- North Hill: Accessible through a driveway and walking trails.\nUsually, it takes the same time to reach all three places by car, but some routes may be inaccessible now.\nThere is only one correct evacuation location. After the discussion:\n- If you choose the correct location, you will earn $1.\n- If all other participants also choose the correct location, you will earn an additional $1 (for a total of $2).\nThis means that coordinating with others is critical to maximize your rewards. The chat will at most take 15 minutes. However, the exact time when the chat will end is unknown.",
+      "evidence_chain": "The imminent dam release makes the West City bridge unsafe; the East Town tunnel is blocked by the supply truck and fire; North Hill's driveway remains open, leaving North Hill as the viable route.",
+      "name": "evacuation_north_hill",
+      "private_facts": [
+        "The river level is just below the bridge to West City.",
+        "The dam upstream will release water in a minute.",
+        "The supply truck headed to the village from East Town was stuck in the tunnel.",
+        "A massive fire has blocked the supply truck and all other traffic."
+      ],
+      "shared_information": [
+        "The local government announced that hotels in West City are prepared to accommodate evacuees. These hotels are fully stocked with food and medical supplies.",
+        "The mayor of East Town has offered accommodations for any evacuees. She also ensures that volunteers are available to assist them.",
+        "The school at North Hill can serve as a temporary evacuation center, providing a two-week supply of essentials and sleeping space in the gym, but it lacks privacy.",
+        "A mudslide just occurred. While the driveway to North Hill remains open, the walking trails are blocked."
+      ],
+      "task_id": 2
+    },
+    {
+      "correct_answer": "East Town",
+      "description": "You are participating in a study, acting as a community leader of a small village surrounded by mountains and rivers. Most villagers own cars, but there are also elderly people and children who may need additional assistance when walking. Earlier today, heavy rain began to fall, and the local government issued a warning about a potential disaster.\nHours ago, you requested relief supplies, but the supply truck has yet to arrive. Now, the rain has temporarily stopped, giving you and the other three community leaders a short window to decide on the safest evacuation route before the rain resumes. You don’t know how much time you have left to make this critical decision.\nYour Task:\nYou will discuss with three other participants, who are also acting as community leaders, to decide where to evacuate. You have three options:\n- West City: Accessible through a bridge over the river.\n- East Town: Accessible through a tunnel on middle ground.\n- North Hill: Accessible through a driveway and walking trails.\nUsually, it takes the same time to reach all three places by car, but some routes may be inaccessible now.\nThere is only one correct evacuation location. After the discussion:\n- If you choose the correct location, you will earn $1.\n- If all other participants also choose the correct location, you will earn an additional $1 (for a total of $2).\nThis means that coordinating with others is critical to maximize your rewards. The chat will at most take 15 minutes. However, the exact time when the chat will end is unknown.",
+      "evidence_chain": "The dam release makes the West City bridge unsafe and both North Hill access routes are blocked; no fact blocks the East Town tunnel, leaving East Town as the viable route.",
+      "name": "evacuation_east_town",
+      "private_facts": [
+        "The river level is just below the bridge to West City.",
+        "The dam upstream will release water in a minute.",
+        "The walking trails have been closed since last weekend due to fallen trees.",
+        "A mudslide just occurred, covering the driveway to North Hill."
+      ],
+      "shared_information": [
+        "The local government announced that hotels in West City are prepared to accommodate evacuees. These hotels are fully stocked with food and medical supplies.",
+        "The mayor of East Town has offered accommodations for any evacuees. However, she has expressed concern about a possible shortage of volunteers to assist them.",
+        "The school at North Hill can serve as a temporary evacuation center, providing a two-week supply of essentials and sleeping space in the gym.",
+        "The supply truck was supposed to come from East Town."
+      ],
+      "task_id": 3
+    }
+  ],
+  "stage_counts": {
+    "confirmatory_20260804": 210,
+    "contrast_20260803": 120,
+    "earlystop_20260803": 80,
+    "governance_20260802": 80,
+    "official_global_reveal_20260804": 30,
+    "structured_20260802": 40
+  },
+  "stage_api_requests": {
+    "confirmatory_20260804": 11971,
+    "contrast_20260803": 1800,
+    "earlystop_20260803": 2880,
+    "governance_20260802": 5760,
+    "official_global_reveal_20260804": 2160,
+    "structured_20260802": 960
+  },
+  "gate_checks": {
+    "confirmatory_20260804": {
+      "audit_code_provenance": true,
+      "code_commit_provenance": true,
+      "complete_atomic_audits": true,
+      "complete_run_matrix": true,
+      "complete_shadow_checkpoints": true,
+      "condition_shapes_and_budgets": true,
+      "credential_leak_scan": true,
+      "deterministic_row_order": true,
+      "paired_seeds_and_assignments": true,
+      "provider_settings": true,
+      "reveal_all_is_complete": true,
+      "task_and_dataset_hashes": true,
+      "unique_audit_keys": true,
+      "unique_run_keys": true,
+      "valid_atomic_evidence": true
+    },
+    "contrast_20260803": {
+      "assignment_fingerprints": true,
+      "audit_coverage_fixed12": true,
+      "complete_run_matrix": true,
+      "condition_structure": true,
+      "credential_leak_scan": true,
+      "deterministic_row_order": true,
+      "provider_settings": true,
+      "seeds_match_config": true,
+      "task_and_dataset_hashes": true,
+      "unique_run_keys": true,
+      "valid_ai_evidence": true
+    },
+    "earlystop_20260803": {
+      "assignment_fingerprints": true,
+      "audit_coverage_fixed_conditions": true,
+      "complete_run_matrix": true,
+      "condition_structure": true,
+      "credential_leak_scan": true,
+      "deterministic_row_order": true,
+      "provider_settings": true,
+      "seeds_match_config": true,
+      "task_and_dataset_hashes": true,
+      "unique_run_keys": true,
+      "valid_ai_evidence": true
+    },
+    "governance_20260802": {
+      "complete_ai_audits": true,
+      "complete_run_matrix": true,
+      "credential_leak_scan": true,
+      "deterministic_row_order": true,
+      "equal_speech_budgets": true,
+      "paired_seeds_and_assignments": true,
+      "provider_settings": true,
+      "sequential_visibility": true,
+      "task_and_dataset_hashes": true,
+      "unique_audit_keys": true,
+      "unique_run_keys": true,
+      "valid_ai_evidence": true,
+      "zero_selector_llm_calls": true
+    },
+    "official_global_reveal_20260804": {
+      "code_commit_provenance": true,
+      "complete_run_matrix": true,
+      "credential_leak_scan": true,
+      "deterministic_row_order": true,
+      "message_budget": true,
+      "official_global_reveal_timing": true,
+      "paired_seed_and_assignment": true,
+      "provider_settings": true,
+      "task_and_dataset_hashes": true,
+      "unique_run_keys": true
+    },
+    "structured_20260802": {
+      "assignment_fingerprints": true,
+      "complete_ai_audits": true,
+      "complete_run_matrix": true,
+      "credential_leak_scan": true,
+      "deterministic_row_order": true,
+      "exchange_then_decide_rounds": true,
+      "fixed_agent_order": true,
+      "provider_settings": true,
+      "seeds_match_config": true,
+      "task_and_dataset_hashes": true,
+      "twelve_message_protocol": true,
+      "unique_audit_keys": true,
+      "unique_run_keys": true,
+      "valid_ai_evidence": true
+    }
+  },
+  "all_gates_passed": true,
+  "official_code": {
+    "implementation": "Author-written Python simulator, not MAF.",
+    "paper": "Li, Naito, and Shirado, arXiv:2505.11556",
+    "repository": "https://github.com/Yassellee/HiddenBench_ICML",
+    "results": "https://huggingface.co/datasets/YuxuanLi1225/HiddenBench-results",
+    "short_reference_model": "gpt-4.1",
+    "verified_commit": "3be6ca16973e4fb751ffc0dfb7eb11f2d28335d1"
+  },
+  "publication": {
+    "branch": "codex/budget-matched-dynamic",
+    "pull_request": "https://github.com/sbw51898-beep/mas/pull/5",
+    "release": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-confirmatory-20260804",
+    "report_commit": "76e74cda72d90c008fec87f11a4ddd983b4ae296",
+    "repository": "https://github.com/sbw51898-beep/mas"
+  },
+  "blind_review": {
+    "ai_human_label_agreement_estimate": 0.7949652777777778,
+    "estimated_precision": 0.9506666666666667,
+    "estimated_recall": 0.6665627921470862,
+    "note": "Codex independent blind review. Not human ground truth; the same filled form can be re-verified by a human annotator.",
+    "population_size": 320,
+    "reviewed_disclosed": 73,
+    "reviewed_size": 144,
+    "reviewed_undisclosed": 71,
+    "reviewer": "codex-blind-review-v1",
+    "revised_disclosure_rate": 0.5571180555555556,
+    "status": "not_human_gold"
+  },
+  "reference_count": 17,
+  "reference_keys": [
+    "hiddenbench",
+    "stasser_titus",
+    "hidden_profile_meta",
+    "llm_mas_survey",
+    "multiagent_debate",
+    "metagpt",
+    "chatdev",
+    "agentverse",
+    "autogen",
+    "maf",
+    "mast",
+    "divergent_debate",
+    "free_mad",
+    "failure_attribution",
+    "dylan",
+    "emergent_coordination",
+    "social_influence"
+  ],
+  "source_hashes": {
+    "hiddenbench-confirmatory-20260804.audits.jsonl": "6df072ef7eee2b998d32133a6cf0c9cad13de9c90347bb3a397eb1362ac29e86",
+    "hiddenbench-confirmatory-20260804.gate.json": "d628b08cc90bef612cd93dfc768a9cf3d54a01c3b9991943e0e8f439aa66c923",
+    "hiddenbench-confirmatory-20260804.jsonl": "6002665ebcdca219e8d4aefc8aee7f284773ee8c7cc8065cac931bd3ba5d329b",
+    "hiddenbench-contrast-20260803.ai-disclosure.jsonl": "6fa39c74e97470566ec0132bd5443124eb9dfee13ddeb3ceeca273a89f575d30",
+    "hiddenbench-contrast-20260803.gate.json": "67285a353342654b27316c1e5fa86888b8cb25001f60b4890bbc649bfa409de0",
+    "hiddenbench-contrast-20260803.jsonl": "149884fc975b674602c26e82c6a7f25cabeea665b88afac57df716b1c099ca28",
+    "hiddenbench-earlystop-20260803.ai-disclosure.jsonl": "46d35d4121c45e01c02afd8416b4df6b5325d7100aa6badd74e15191dd0f85e3",
+    "hiddenbench-earlystop-20260803.gate.json": "6f974f1f41e867dcc8d424eee52680798316e5325de9957666b768a6afa33330",
+    "hiddenbench-earlystop-20260803.jsonl": "98b3d98275e7f93c82056941c5213a5a93cc2e4d6c87896dfa13a9d13c4ae30c",
+    "hiddenbench-governance-20260802.ai-disclosure.jsonl": "2860e493dfaf97af25cea9a097694de8456b7113951bf758ff0c883bd041a2e3",
+    "hiddenbench-governance-20260802.gate.json": "7ab5d08bba66b8fb344d8356f3b1a9ce4c0f5d030f8ea990f93aceeb540781b6",
+    "hiddenbench-governance-20260802.jsonl": "6d619660183d39772fb3f14f124c1e13921f7c3f7d3020b71f7933b264edb726",
+    "hiddenbench-official-reveal-supplement-20260804.gate.json": "90bf23dd9a8e5a1c5aa600af5d222fb4752e0d3ce42a739ce5c1606cb004be7c",
+    "hiddenbench-official-reveal-supplement-20260804.jsonl": "80402fd4dff56d16171b75bb275cbfa46dde7408f5a4a161d9fa35fdcd81c87a",
+    "hiddenbench-structured-20260802.ai-disclosure.jsonl": "55d5c01aac4dc87d14181005c9aaf4c59665d27efbdc018374e8d476baff52b7",
+    "hiddenbench-structured-20260802.gate.json": "d3da88faf92c83a4a336b6577642b80ecf60df9ee055e31d606243beb7813cd9",
+    "hiddenbench-structured-20260802.jsonl": "8a89d7f4cda7483b3e9f71269880fdfab9c7cf95a2f332487c5362ee91efcafd"
+  }
+}

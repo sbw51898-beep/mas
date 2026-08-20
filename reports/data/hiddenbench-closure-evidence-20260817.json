@@ -1,0 +1,832 @@
+{
+  "schema_version": "hiddenbench-closure-evidence-v2",
+  "source_artifacts": {
+    "confirmatory_records": "artifacts/hiddenbench-confirmatory-20260804.jsonl",
+    "atomic_disclosure_audits": "artifacts/hiddenbench-confirmatory-20260804.audits.jsonl"
+  },
+  "single_agent_comparison": {
+    "scope": {
+      "task_ids": [
+        1,
+        2,
+        3
+      ],
+      "repetitions": 10,
+      "model": "deepseek-v4-flash"
+    },
+    "overall": {
+      "single_local": "4/30",
+      "single_full_profile": "20/30",
+      "fixed_60_multi_agent": "17/30"
+    },
+    "by_task": [
+      {
+        "task_id": 1,
+        "single_local": "2/10",
+        "single_full_profile": "10/10",
+        "fixed_60_multi_agent": "10/10"
+      },
+      {
+        "task_id": 2,
+        "single_local": "2/10",
+        "single_full_profile": "10/10",
+        "fixed_60_multi_agent": "0/10"
+      },
+      {
+        "task_id": 3,
+        "single_local": "0/10",
+        "single_full_profile": "0/10",
+        "fixed_60_multi_agent": "7/10"
+      }
+    ],
+    "interpretation_boundary": "single_full_profile is the no-discussion full-information vote stored inside each single-local run, not a separate new API run"
+  },
+  "ordinary_60_disclosure": {
+    "scope": {
+      "conditions": [
+        "fixed-60",
+        "dynamic-60"
+      ],
+      "task_ids": [
+        1,
+        2,
+        3
+      ],
+      "repetitions": 10,
+      "atomic_facts_per_run": 4,
+      "audit_type": "model-assisted atomic disclosure audit"
+    },
+    "by_condition": [
+      {
+        "condition": "fixed-60",
+        "by_task": [
+          {
+            "task_id": 1,
+            "disclosed": 30,
+            "total": 40,
+            "rate": 0.75
+          },
+          {
+            "task_id": 2,
+            "disclosed": 28,
+            "total": 40,
+            "rate": 0.7
+          },
+          {
+            "task_id": 3,
+            "disclosed": 32,
+            "total": 40,
+            "rate": 0.8
+          }
+        ],
+        "overall": {
+          "disclosed": 90,
+          "total": 120,
+          "rate": 0.75
+        }
+      },
+      {
+        "condition": "dynamic-60",
+        "by_task": [
+          {
+            "task_id": 1,
+            "disclosed": 27,
+            "total": 40,
+            "rate": 0.675
+          },
+          {
+            "task_id": 2,
+            "disclosed": 24,
+            "total": 40,
+            "rate": 0.6
+          },
+          {
+            "task_id": 3,
+            "disclosed": 36,
+            "total": 40,
+            "rate": 0.9
+          }
+        ],
+        "overall": {
+          "disclosed": 87,
+          "total": 120,
+          "rate": 0.725
+        }
+      }
+    ]
+  },
+  "ai_disclosure_crosscheck": {
+    "scope": {
+      "conditions": [
+        "fixed-60",
+        "dynamic-60"
+      ],
+      "task_ids": [
+        1,
+        2,
+        3
+      ],
+      "repetitions": 10,
+      "audit_model_field": "disclosure_rate",
+      "program_rule": "sum(disclosed=true) / number_of_judgments"
+    },
+    "by_condition": [
+      {
+        "condition": "fixed-60",
+        "by_task": [
+          {
+            "task_id": 1,
+            "ai_reported_rate": 0.75,
+            "program_recomputed_rate": 0.75,
+            "rate_difference": 0.0,
+            "audit_runs": 10,
+            "mismatched_runs": 0
+          },
+          {
+            "task_id": 2,
+            "ai_reported_rate": 0.7,
+            "program_recomputed_rate": 0.7,
+            "rate_difference": 0.0,
+            "audit_runs": 10,
+            "mismatched_runs": 0
+          },
+          {
+            "task_id": 3,
+            "ai_reported_rate": 0.8,
+            "program_recomputed_rate": 0.8,
+            "rate_difference": 0.0,
+            "audit_runs": 10,
+            "mismatched_runs": 0
+          }
+        ],
+        "overall": {
+          "ai_reported_rate": 0.75,
+          "program_recomputed_rate": 0.75,
+          "rate_difference": 0.0,
+          "audit_runs": 30,
+          "mismatched_runs": 0
+        }
+      },
+      {
+        "condition": "dynamic-60",
+        "by_task": [
+          {
+            "task_id": 1,
+            "ai_reported_rate": 0.675,
+            "program_recomputed_rate": 0.675,
+            "rate_difference": 0.0,
+            "audit_runs": 10,
+            "mismatched_runs": 0
+          },
+          {
+            "task_id": 2,
+            "ai_reported_rate": 0.6,
+            "program_recomputed_rate": 0.6,
+            "rate_difference": 0.0,
+            "audit_runs": 10,
+            "mismatched_runs": 0
+          },
+          {
+            "task_id": 3,
+            "ai_reported_rate": 0.9,
+            "program_recomputed_rate": 0.9,
+            "rate_difference": 0.0,
+            "audit_runs": 10,
+            "mismatched_runs": 0
+          }
+        ],
+        "overall": {
+          "ai_reported_rate": 0.725,
+          "program_recomputed_rate": 0.725,
+          "rate_difference": 0.0,
+          "audit_runs": 30,
+          "mismatched_runs": 0
+        }
+      }
+    ]
+  },
+  "repeat_stability": {
+    "scope": {
+      "conditions": [
+        "fixed-60",
+        "dynamic-60"
+      ],
+      "task_ids": [
+        1,
+        2,
+        3
+      ],
+      "repetitions_per_task": 10,
+      "vote_field": "hidden_post_votes",
+      "outcome_encoding": "C=majority correct, I=majority incorrect"
+    },
+    "by_condition": [
+      {
+        "condition": "fixed-60",
+        "by_task": [
+          {
+            "task_id": 1,
+            "correct_runs": 10,
+            "incorrect_runs": 0,
+            "total_runs": 10,
+            "rate": 1.0,
+            "wilson_95_low": 0.7224672001371107,
+            "wilson_95_high": 0.9999999999999999,
+            "outcome_sequence": [
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C"
+            ]
+          },
+          {
+            "task_id": 2,
+            "correct_runs": 0,
+            "incorrect_runs": 10,
+            "total_runs": 10,
+            "rate": 0.0,
+            "wilson_95_low": 0.0,
+            "wilson_95_high": 0.2775327998628892,
+            "outcome_sequence": [
+              "I",
+              "I",
+              "I",
+              "I",
+              "I",
+              "I",
+              "I",
+              "I",
+              "I",
+              "I"
+            ]
+          },
+          {
+            "task_id": 3,
+            "correct_runs": 7,
+            "incorrect_runs": 3,
+            "total_runs": 10,
+            "rate": 0.7,
+            "wilson_95_low": 0.39677814746114537,
+            "wilson_95_high": 0.8922087325936989,
+            "outcome_sequence": [
+              "I",
+              "C",
+              "C",
+              "C",
+              "I",
+              "C",
+              "C",
+              "I",
+              "C",
+              "C"
+            ]
+          }
+        ],
+        "overall": {
+          "correct_runs": 17,
+          "incorrect_runs": 13,
+          "total_runs": 30,
+          "rate": 0.5666666666666667,
+          "wilson_95_low": 0.3919730700081361,
+          "wilson_95_high": 0.7262251442353347
+        }
+      },
+      {
+        "condition": "dynamic-60",
+        "by_task": [
+          {
+            "task_id": 1,
+            "correct_runs": 10,
+            "incorrect_runs": 0,
+            "total_runs": 10,
+            "rate": 1.0,
+            "wilson_95_low": 0.7224672001371107,
+            "wilson_95_high": 0.9999999999999999,
+            "outcome_sequence": [
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C"
+            ]
+          },
+          {
+            "task_id": 2,
+            "correct_runs": 2,
+            "incorrect_runs": 8,
+            "total_runs": 10,
+            "rate": 0.2,
+            "wilson_95_low": 0.05668215145437519,
+            "wilson_95_high": 0.5098375284633583,
+            "outcome_sequence": [
+              "I",
+              "I",
+              "I",
+              "I",
+              "I",
+              "C",
+              "I",
+              "I",
+              "C",
+              "I"
+            ]
+          },
+          {
+            "task_id": 3,
+            "correct_runs": 9,
+            "incorrect_runs": 1,
+            "total_runs": 10,
+            "rate": 0.9,
+            "wilson_95_low": 0.5958499732047615,
+            "wilson_95_high": 0.9821237869049271,
+            "outcome_sequence": [
+              "I",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C",
+              "C"
+            ]
+          }
+        ],
+        "overall": {
+          "correct_runs": 21,
+          "incorrect_runs": 9,
+          "total_runs": 30,
+          "rate": 0.7,
+          "wilson_95_low": 0.5212421254128504,
+          "wilson_95_high": 0.8333525173175619
+        }
+      }
+    ]
+  },
+  "correctness_stratified_disclosure": {
+    "scope": {
+      "conditions": [
+        "fixed-60",
+        "dynamic-60"
+      ],
+      "task_ids": [
+        1,
+        2,
+        3
+      ],
+      "repetitions": 10,
+      "stratifier": "run.metrics.post_majority_correct"
+    },
+    "by_condition": [
+      {
+        "condition": "fixed-60",
+        "correct_runs": 17,
+        "correct_mean_disclosure_rate": 0.7647058823529411,
+        "incorrect_runs": 13,
+        "incorrect_mean_disclosure_rate": 0.7307692307692307
+      },
+      {
+        "condition": "dynamic-60",
+        "correct_runs": 21,
+        "correct_mean_disclosure_rate": 0.7619047619047619,
+        "incorrect_runs": 9,
+        "incorrect_mean_disclosure_rate": 0.6388888888888888
+      }
+    ]
+  },
+  "disclosure_timing": {
+    "definition": "Timing is conditional on a fact already labeled disclosed=true; the first round is the minimum round_index among cited owner-authored evidence messages.",
+    "by_condition": [
+      {
+        "condition": "fixed-60",
+        "disclosed_facts": 90,
+        "first_round_count": 85,
+        "later_round_count": 5,
+        "mean_first_disclosure_round": 1.2,
+        "median_first_disclosure_round": 1.0,
+        "first_round_counts": [
+          {
+            "round": 1,
+            "count": 85
+          },
+          {
+            "round": 2,
+            "count": 3
+          },
+          {
+            "round": 3,
+            "count": 1
+          },
+          {
+            "round": 14,
+            "count": 1
+          }
+        ]
+      },
+      {
+        "condition": "dynamic-60",
+        "disclosed_facts": 87,
+        "first_round_count": 72,
+        "later_round_count": 15,
+        "mean_first_disclosure_round": 1.7701149425287357,
+        "median_first_disclosure_round": 1,
+        "first_round_counts": [
+          {
+            "round": 1,
+            "count": 72
+          },
+          {
+            "round": 2,
+            "count": 3
+          },
+          {
+            "round": 3,
+            "count": 2
+          },
+          {
+            "round": 4,
+            "count": 1
+          },
+          {
+            "round": 5,
+            "count": 3
+          },
+          {
+            "round": 6,
+            "count": 1
+          },
+          {
+            "round": 7,
+            "count": 2
+          },
+          {
+            "round": 9,
+            "count": 2
+          },
+          {
+            "round": 13,
+            "count": 1
+          }
+        ]
+      }
+    ]
+  },
+  "paired_comparisons": {
+    "pair_key": "task_id + repetition",
+    "result": [
+      {
+        "condition_a": "fixed-60",
+        "condition_b": "dynamic-60",
+        "pairs": 30,
+        "same_pair_seed": 30,
+        "same_assignment_fingerprint": 30,
+        "a_only": 0,
+        "b_only": 4,
+        "discordant": 4,
+        "a_correct": 17,
+        "b_correct": 21,
+        "test": "two-sided exact McNemar (binomial test on discordant pairs)"
+      },
+      {
+        "condition_a": "fixed-reveal-all",
+        "condition_b": "dynamic-reveal-all",
+        "pairs": 30,
+        "same_pair_seed": 30,
+        "same_assignment_fingerprint": 30,
+        "a_only": 0,
+        "b_only": 4,
+        "discordant": 4,
+        "a_correct": 26,
+        "b_correct": 30,
+        "test": "two-sided exact McNemar (binomial test on discordant pairs)"
+      },
+      {
+        "condition_a": "fixed-12",
+        "condition_b": "structured-12",
+        "pairs": 30,
+        "same_pair_seed": 30,
+        "same_assignment_fingerprint": 30,
+        "a_only": 4,
+        "b_only": 8,
+        "discordant": 12,
+        "a_correct": 20,
+        "b_correct": 24,
+        "test": "two-sided exact McNemar (binomial test on discordant pairs)"
+      }
+    ],
+    "generation_note": "Pairing controls task, fact assignment, and protocol inputs; the model backend does not receive a synchronized generation seed."
+  },
+  "public_speech_budget": {
+    "scope": {
+      "task_ids": [
+        1,
+        2,
+        3
+      ],
+      "repetitions": 10,
+      "agents": 4,
+      "public_messages_per_run": 60,
+      "public_messages_per_agent": 15
+    },
+    "by_condition": [
+      {
+        "condition": "fixed-60",
+        "runs": 30,
+        "logical_response_slots_per_run": 132,
+        "shadow_vote_calls_per_run": 60,
+        "selector_llm_calls_per_run": 0,
+        "api_request_distribution": {
+          "132": 29,
+          "133": 1
+        }
+      },
+      {
+        "condition": "dynamic-60",
+        "runs": 30,
+        "logical_response_slots_per_run": 72,
+        "shadow_vote_calls_per_run": 0,
+        "selector_llm_calls_per_run": 0,
+        "api_request_distribution": {
+          "72": 30
+        }
+      }
+    ]
+  },
+  "causal_cards": [
+    {
+      "mechanism": "information_not_disclosed",
+      "run_id": "0d078a3c85f64262",
+      "study_key": {
+        "task_id": 2,
+        "condition": "fixed-60",
+        "repetition": 0
+      },
+      "correct_answer": "North Hill",
+      "final_votes": [
+        "East Town",
+        "East Town",
+        "East Town",
+        "East Town"
+      ],
+      "facts": [
+        {
+          "fact_id": "atomic-fact:fdb95995b31ce89325cc",
+          "owner_agent_id": "agent-b",
+          "fact": "The supply truck headed to the village from East Town was stuck in the tunnel.",
+          "disclosed": false,
+          "evidence_message_ids": [],
+          "evidence_quote": "",
+          "audit_reason": "No agent-b message mentions the supply truck being stuck in the tunnel."
+        },
+        {
+          "fact_id": "atomic-fact:a5ea8046cfb28a0e9f46",
+          "owner_agent_id": "agent-d",
+          "fact": "A massive fire has blocked the supply truck and all other traffic.",
+          "disclosed": false,
+          "evidence_message_ids": [],
+          "evidence_quote": "",
+          "audit_reason": "No agent-d message mentions a massive fire blocking the supply truck or all traffic."
+        }
+      ],
+      "undisclosed_fact_count": 2,
+      "final_rationales": [
+        "The dam release makes West City's bridge unsafe, and North Hill's trails are blocked, leaving East Town's tunnel as the only viable route.",
+        "The bridge to West City is unsafe due to the dam release, and North Hill's trails are blocked, leaving East Town's tunnel as the only viable route.",
+        "The dam release makes the bridge to West City unsafe, and North Hill's walking trails are blocked, leaving East Town's tunnel as the only viable route.",
+        "The dam release makes West City's bridge unsafe, and North Hill's trails are blocked, so East Town's tunnel is the only viable route."
+      ],
+      "conclusion_boundary": "The frozen atomic audit finds two route-blocking facts absent from their owners' public messages. This supports an output-level non-disclosure observation, not a complete causal attribution.",
+      "selection_rule": "固定检索规则：按 task_id=2、condition=fixed-60 的 repetition 升序扫描，选择第一个多数投票错误且至少一条所有者事实被审计为未披露的运行。"
+    },
+    {
+      "mechanism": "evidence_misinterpreted",
+      "run_id": "e46521e6691a10ca",
+      "study_key": {
+        "task_id": 2,
+        "condition": "fixed-reveal-all",
+        "repetition": 1
+      },
+      "correct_answer": "North Hill",
+      "all_atomic_facts_disclosed": true,
+      "injected_evidence_message_id": "e0528435edaa8576",
+      "injected_evidence_quote": "The supply truck headed to the village from East Town was stuck in the tunnel.",
+      "contradictory_message_id": "b5a31c876a93aea6",
+      "contradictory_message_quote": "East Town is the correct choice—the tunnel is clear, the mayor has accommodations ready, and the bridge to West City is threatened by the dam release while North Hill’s trails are blocked. Let’s all evacuate to East Town.",
+      "contradictory_final_rationale": "The tunnel is clear, the mayor has accommodations ready, and the dam release threatens West City's bridge while North Hill's trails are blocked.",
+      "final_votes": [
+        "East Town",
+        "East Town",
+        "East Town",
+        "East Town"
+      ],
+      "conclusion_boundary": "The outputs contain a direct contradiction between a mechanically injected fact that the truck was stuck in the tunnel and later claims that the tunnel was clear. It is an output-level misinterpretation signal; human coding is still required before asserting an internal causal mechanism.",
+      "selection_rule": "固定检索规则：按 task_id=2、condition=fixed-reveal-all 的 repetition 升序扫描，选择第一个四条事实均披露、最终多数错误且后续输出与注入事实直接矛盾的运行。"
+    },
+    {
+      "mechanism": "evidence_not_used_after_disclosure",
+      "run_id": "bfba1db7a056ebea",
+      "study_key": {
+        "task_id": 3,
+        "condition": "fixed-60",
+        "repetition": 0
+      },
+      "correct_answer": "East Town",
+      "all_atomic_facts_disclosed": true,
+      "late_evidence_message_id": "d85fde011965a482",
+      "late_evidence_quote": "I agree with the group—North Hill is the best choice given the bridge risk and East Town’s volunteer shortage, but we must note the walking trails are closed, so we’ll rely on the driveway if it’s clear. Let’s all commit to North Hill and coordinate departure immediately.",
+      "follow_up_message_id": "b8dd85f9f7bf206d",
+      "follow_up_quote": "I agree with the group consensus for North Hill, but I must flag that the mudslide covering the driveway makes it inaccessible—so we need to verify the walking trails are open before committing, or we risk being stranded. Let’s all confirm we can use the trails and head there together.",
+      "final_votes": [
+        "North Hill",
+        "North Hill",
+        "North Hill",
+        "North Hill"
+      ],
+      "final_rationales": [
+        "The bridge to West City is unsafe due to the dam release, and East Town has a volunteer shortage. North Hill's school provides supplies and shelter, and despite the mudslide blocking the driveway, walking trails may be usable.",
+        "The bridge to West City is unsafe due to the river level, and East Town has a volunteer shortage, making North Hill the most reliable option with the school's supplies and shelter.",
+        "The bridge to West City is unsafe due to the river, and East Town has a volunteer shortage, while North Hill's school offers supplies and shelter, despite the need to verify trail access.",
+        "The bridge to West City is unsafe due to the river, and East Town has a volunteer shortage, while North Hill's school offers supplies and shelter, despite the mudslide blocking the driveway, we can use walking trails if open."
+      ],
+      "conclusion_boundary": "All four facts were marked disclosed, and late messages jointly state that both North Hill access routes require verification or are blocked, yet the final action remains North Hill. This is evidence that disclosed evidence was not consistently carried into the final action; human coding must distinguish non-use from misinterpretation.",
+      "selection_rule": "固定检索规则：按 task_id=3、condition=fixed-60 的 repetition 升序扫描，选择第一个四条事实均披露、最终多数错误且晚到证据仍指出路径受阻或需验证的运行。"
+    }
+  ],
+  "prompt_example": {
+    "study_key": {
+      "task_id": 2,
+      "condition": "fixed-60",
+      "repetition": 0
+    },
+    "run_id": "0d078a3c85f64262",
+    "public_message_count": 60,
+    "private_facts": [
+      {
+        "fact_id": "atomic-fact:d7ec558416964cd836fa",
+        "owner_agent_id": "agent-a",
+        "claim": "The river level is just below the bridge to West City."
+      },
+      {
+        "fact_id": "atomic-fact:fdb95995b31ce89325cc",
+        "owner_agent_id": "agent-b",
+        "claim": "The supply truck headed to the village from East Town was stuck in the tunnel."
+      },
+      {
+        "fact_id": "atomic-fact:afc57c1eeeb689a25303",
+        "owner_agent_id": "agent-c",
+        "claim": "The dam upstream will release water in a minute."
+      },
+      {
+        "fact_id": "atomic-fact:a5ea8046cfb28a0e9f46",
+        "owner_agent_id": "agent-d",
+        "claim": "A massive fire has blocked the supply truck and all other traffic."
+      }
+    ],
+    "private_information_by_owner": {
+      "agent-a": "The river level is just below the bridge to West City.",
+      "agent-b": "The supply truck headed to the village from East Town was stuck in the tunnel.",
+      "agent-c": "The dam upstream will release water in a minute.",
+      "agent-d": "A massive fire has blocked the supply truck and all other traffic."
+    },
+    "public_messages_excerpt": [
+      {
+        "message_id": "bb5c8fe7c89adc9b",
+        "agent_id": "agent-a",
+        "content": "Given the mudslide blocking North Hill’s trails and the river still below the bridge, West City’s stocked hotels seem safest—let’s head there."
+      },
+      {
+        "message_id": "83268f824bbd4590",
+        "agent_id": "agent-b",
+        "content": "I agree that West City’s hotels are well-stocked, but the bridge over the river may be risky after heavy rain—let’s check if the bridge is confirmed safe before committing."
+      },
+      {
+        "message_id": "beecc93d545c8dd6",
+        "agent_id": "agent-c",
+        "content": "The dam upstream will release water in a minute, so the bridge to West City is too dangerous—we must avoid it. East Town’s tunnel on middle ground is the safest route, and the mayor’s offer of accommodations and volunteers makes it our best choice."
+      },
+      {
+        "message_id": "2c6d161886299f65",
+        "agent_id": "agent-d",
+        "content": "East Town is the safest choice—the bridge is compromised by the dam release, and North Hill’s trails are blocked, so the tunnel route with mayor’s support is our best bet. Let’s all head there."
+      }
+    ],
+    "judgments": [
+      {
+        "fact_id": "atomic-fact:d7ec558416964cd836fa",
+        "owner_agent_id": "agent-a",
+        "disclosed": true,
+        "evidence_message_ids": [
+          "bb5c8fe7c89adc9b"
+        ],
+        "evidence_quote": "the river still below the bridge",
+        "reason": "Agent-a's message states the river is still below the bridge, matching the claim."
+      },
+      {
+        "fact_id": "atomic-fact:fdb95995b31ce89325cc",
+        "owner_agent_id": "agent-b",
+        "disclosed": false,
+        "evidence_message_ids": [],
+        "evidence_quote": "",
+        "reason": "No agent-b message mentions the supply truck being stuck in the tunnel."
+      },
+      {
+        "fact_id": "atomic-fact:afc57c1eeeb689a25303",
+        "owner_agent_id": "agent-c",
+        "disclosed": true,
+        "evidence_message_ids": [
+          "beecc93d545c8dd6"
+        ],
+        "evidence_quote": "The dam upstream will release water in a minute",
+        "reason": "Agent-c's message exactly states the dam release."
+      },
+      {
+        "fact_id": "atomic-fact:a5ea8046cfb28a0e9f46",
+        "owner_agent_id": "agent-d",
+        "disclosed": false,
+        "evidence_message_ids": [],
+        "evidence_quote": "",
+        "reason": "No agent-d message mentions a massive fire blocking the supply truck or all traffic."
+      }
+    ],
+    "audit_disclosure_rate": 0.5,
+    "discussion_turn": {
+      "message_id": "83268f824bbd4590",
+      "round_index": 1,
+      "agent_id": "agent-b",
+      "system_prompt": "You are participating in a study, acting as a community leader of a small village surrounded by mountains and rivers. Most villagers own cars, but there are also elderly people and children who may need additional assistance when walking. Earlier today, heavy rain began to fall, and the local government issued a warning about a potential disaster.\nHours ago, you requested relief supplies, but the supply truck has yet to arrive. Now, the rain has temporarily stopped, giving you and the other three community leaders a short window to decide on the safest evacuation route before the rain resumes. You don’t know how much time you have left to make this critical decision.\nYour Task:\nYou will discuss with three other participants, who are also acting as community leaders, to decide where to evacuate. You have three options:\n- West City: Accessible through a bridge over the river.\n- East Town: Accessible through a tunnel on middle ground.\n- North Hill: Accessible through a driveway and walking trails.\nUsually, it takes the same time to reach all three places by car, but some routes may be inaccessible now.\nThere is only one correct evacuation location. After the discussion:\n- If you choose the correct location, you will earn $1.\n- If all other participants also choose the correct location, you will earn an additional $1 (for a total of $2).\nThis means that coordinating with others is critical to maximize your rewards. The chat will at most take 15 minutes. However, the exact time when the chat will end is unknown.\n\nYou have received the following information, notice the order of this information is\nrandomly shuffled, the order of facts does not indicate importance or relationship,\nplease reason carefully:\n- A mudslide just occurred. While the driveway to North Hill remains open, the walking trails are blocked.\n- The mayor of East Town has offered accommodations for any evacuees. She also ensures that volunteers are available to assist them.\n- The school at North Hill can serve as a temporary evacuation center, providing a two-week supply of essentials and sleeping space in the gym, but it lacks privacy.\n- The supply truck headed to the village from East Town was stuck in the tunnel.\n- The local government announced that hotels in West City are prepared to accommodate evacuees. These hotels are fully stocked with food and medical supplies.\nKeep your response concise-just one or two sentences.",
+      "user_prompt": "Previous messages from other people:\nagent-a: Given the mudslide blocking North Hill’s trails and the river still below the bridge, West City’s stocked hotels seem safest—let’s head there.\nIt’s your turn to speak.",
+      "actual_output": "I agree that West City’s hotels are well-stocked, but the bridge over the river may be risky after heavy rain—let’s check if the bridge is confirmed safe before committing.",
+      "model": "deepseek-v4-flash",
+      "temperature": 0,
+      "thinking": "disabled"
+    }
+  },
+  "selector_formula": {
+    "score_formula": "S_i = 0.30 d_i + 0.30 u_i + 0.15 r_i + 0.15 q_i + 0.10 w_i",
+    "factors": [
+      {
+        "symbol": "d_i",
+        "name": "disagreement",
+        "weight": 0.3,
+        "definition": "1 if the agent's latest stance differs from the current plurality; 0.5 if no unique plurality exists; otherwise 0"
+      },
+      {
+        "symbol": "u_i",
+        "name": "undisclosed",
+        "weight": 0.3,
+        "definition": "fraction of the agent's private atoms not yet matched in its owner-authored public messages"
+      },
+      {
+        "symbol": "r_i",
+        "name": "related_discussion",
+        "weight": 0.15,
+        "definition": "1 when new messages mention an answer option related to one of the agent's undisclosed atoms; otherwise 0"
+      },
+      {
+        "symbol": "q_i",
+        "name": "response_due",
+        "weight": 0.15,
+        "definition": "1 when another owner has newly disclosed a cross-agent atom since this agent last spoke; otherwise 0"
+      },
+      {
+        "symbol": "w_i",
+        "name": "waiting",
+        "weight": 0.1,
+        "definition": "normalized turns since the agent last spoke"
+      }
+    ],
+    "tie_break_order": [
+      "weighted_total descending",
+      "remaining_quota descending",
+      "raw_waiting descending",
+      "agent_id ascending"
+    ],
+    "normalization": "All five factor values are in [0,1]; weights sum to 1.0."
+  },
+  "protocol_clarifications": {
+    "ordinary_disclosure": "Under ordinary conditions each agent holds one private fact. The pair seed randomizes fact assignment and fact order only; turn order is fixed by the protocol, and disclosure is neither randomized nor mechanically forced: the model decides whether and how to mention its fact in a public turn.",
+    "reveal_all": "Only Reveal-All mechanically appends private facts to public messages; it is a diagnostic information-availability condition.",
+    "fixed_60_continuation": "fixed-60 retains 15 rounds × 4 agents by design. The frozen data do not establish a separately measured early-consensus effect; continuing the diagnostic protocol lets us observe late evidence, correction, stance changes, and final-vote stability. It is not an early-stopping policy."
+  },
+  "boundaries": {
+    "human_review": "pending_real_human_double_blind_review",
+    "model_framework_decoupling": "pending_gpt41_or_equivalent_api_access",
+    "ai_disclosure_audit": "The frozen disclosure labels were produced by a model-assisted atomic audit and are not human gold-standard labels."
+  },
+  "source_sha256": {
+    "artifacts/hiddenbench-confirmatory-20260804.jsonl": "6002665ebcdca219e8d4aefc8aee7f284773ee8c7cc8065cac931bd3ba5d329b",
+    "artifacts/hiddenbench-confirmatory-20260804.audits.jsonl": "6df072ef7eee2b998d32133a6cf0c9cad13de9c90347bb3a397eb1362ac29e86"
+  }
+}

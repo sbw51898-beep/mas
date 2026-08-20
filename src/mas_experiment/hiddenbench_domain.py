@@ -10,7 +10,7 @@ from mas_experiment.hiddenbench_data import HiddenBenchTask
 
 
 AGENT_IDS = ("agent-a", "agent-b", "agent-c", "agent-d")
-VoteCondition = Literal["hidden_pre", "hidden_post", "full_profile"]
+VoteCondition = Literal["hidden_pre", "hidden_post", "full_profile", "shadow"]
 FailureMode = Literal["FM-2.4", "FM-2.5", "FM-2.6"]
 
 

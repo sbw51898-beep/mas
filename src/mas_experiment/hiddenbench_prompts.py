@@ -25,6 +25,26 @@ _LATER_SPEAKER_TEMPLATE = """Previous messages from other people:
 {messages}
 It’s your turn to speak."""
 
+_DISCLOSURE_FIRST_PROMPT = (
+    "Before discussing the decision, first state the decision-relevant "
+    "facts you personally received that the group may not have. Keep it "
+    "to one or two sentences, then give your current view."
+)
+
+_EXCHANGE_FIRST_PROMPT = (
+    "You are the first to speak. Share 1-2 decision-relevant facts you "
+    "have received, and give one reason the current front-runner may be "
+    "incorrect."
+)
+_EXCHANGE_TEMPLATE = """Previous messages from other people:
+{messages}
+Share 1-2 decision-relevant facts you have, and give one reason the current
+front-runner may be incorrect."""
+_DECIDE_TEMPLATE = """Previous messages from other people:
+{messages}
+Summarize the strongest evidence and your remaining uncertainty before
+voting."""
+
 
 def _format_information(information: tuple[str, ...]) -> str:
     return "\n".join(f"- {item}" for item in information)
@@ -87,10 +107,32 @@ def build_full_profile_system_prompt(
 
 def build_discussion_user_prompt(
     visible_messages: tuple[HiddenBenchMessage, ...],
+    *,
+    disclosure_first: bool = False,
 ) -> str:
+    if disclosure_first:
+        return _DISCLOSURE_FIRST_PROMPT
     if not visible_messages:
         return _FIRST_SPEAKER_PROMPT
     return _LATER_SPEAKER_TEMPLATE.format(
+        messages=_format_messages(visible_messages)
+    )
+
+
+def build_exchange_user_prompt(
+    visible_messages: tuple[HiddenBenchMessage, ...],
+) -> str:
+    if not visible_messages:
+        return _EXCHANGE_FIRST_PROMPT
+    return _EXCHANGE_TEMPLATE.format(
+        messages=_format_messages(visible_messages)
+    )
+
+
+def build_decide_user_prompt(
+    visible_messages: tuple[HiddenBenchMessage, ...],
+) -> str:
+    return _DECIDE_TEMPLATE.format(
         messages=_format_messages(visible_messages)
     )
 

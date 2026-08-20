@@ -4,6 +4,10 @@ import hashlib
 import json
 
 from mas_experiment.audit import current_git_commit
+from mas_experiment.hiddenbench_atomic_disclosure import (
+    append_reveal_all_block,
+    decompose_private_facts,
+)
 from mas_experiment.hiddenbench_data import HiddenBenchTask
 from mas_experiment.hiddenbench_domain import (
     AGENT_IDS,
@@ -14,6 +18,7 @@ from mas_experiment.hiddenbench_domain import (
 from mas_experiment.hiddenbench_dynamic_domain import (
     DynamicHiddenBenchRun,
     DynamicPilotConfig,
+    SelectorCandidateScore,
     SelectorEvent,
 )
 from mas_experiment.hiddenbench_dynamic_selector import select_dynamic_speaker
@@ -38,6 +43,8 @@ def _dynamic_fingerprint(
     assignment: HiddenBenchAssignment,
     config: DynamicPilotConfig,
     baseline_run_id: str,
+    disclosure_first: bool = False,
+    mechanical_reveal_all: bool = False,
 ) -> str:
     payload = {
         "task": task.model_dump(mode="json"),
@@ -46,6 +53,8 @@ def _dynamic_fingerprint(
         "baseline_run_id": baseline_run_id,
         "prompt_version": PROMPT_VERSION,
         "orchestration_mode": "dynamic",
+        "disclosure_first": disclosure_first,
+        "mechanical_reveal_all": mechanical_reveal_all,
     }
     serialized = json.dumps(
         payload,
@@ -64,6 +73,8 @@ async def run_hiddenbench_dynamic_task(
     assignment: HiddenBenchAssignment,
     baseline_run_id: str,
     config: DynamicPilotConfig,
+    disclosure_first: bool = False,
+    mechanical_reveal_all: bool = False,
 ) -> DynamicHiddenBenchRun:
     if assignment.task_id != task.id:
         raise ValueError("assignment task ID mismatch")
@@ -76,6 +87,7 @@ async def run_hiddenbench_dynamic_task(
         agent_id: build_hidden_system_prompt(task, assignment, agent_id)
         for agent_id in AGENT_IDS
     }
+    atomic_facts = decompose_private_facts(assignment)
     pre_votes = []
     for agent_id in AGENT_IDS:
         try:
@@ -105,19 +117,48 @@ async def run_hiddenbench_dynamic_task(
         agent_id: config.speeches_per_agent for agent_id in AGENT_IDS
     }
     last_spoken_turns = {agent_id: -1 for agent_id in AGENT_IDS}
+    mechanically_revealed_agents: set[str] = set()
 
-    for turn_index in range(config.total_speeches):
-        agent_id, candidate_scores = select_dynamic_speaker(
-            task=task,
-            assignment=assignment,
-            pre_stances=pre_stances,
-            public_messages=tuple(messages),
-            remaining_quotas=remaining_quotas,
-            last_spoken_turns=last_spoken_turns,
-            config=config.selector,
-            turn_index=turn_index,
-        )
-        round_index = turn_index // 4 + 1
+    forced_agents = tuple(AGENT_IDS) if disclosure_first else ()
+    turn_index = 0
+    while turn_index < config.total_speeches:
+        if turn_index < len(forced_agents):
+            agent_id = forced_agents[turn_index]
+            candidate_scores = (
+                SelectorCandidateScore(
+                    agent_id=agent_id,
+                    disagreement=0.0,
+                    undisclosed=0.0,
+                    related_discussion=0.0,
+                    response_due=0.0,
+                    waiting=0.0,
+                    weighted_total=0.0,
+                    remaining_quota=remaining_quotas[agent_id],
+                    raw_waiting=0,
+                    latest_stance=None,
+                    selected=True,
+                ),
+            )
+            round_index = 1
+            user_prompt = build_discussion_user_prompt(
+                tuple(messages),
+                disclosure_first=True,
+            )
+        else:
+            agent_id, candidate_scores = select_dynamic_speaker(
+                task=task,
+                assignment=assignment,
+                pre_stances=pre_stances,
+                public_messages=tuple(messages),
+                remaining_quotas=remaining_quotas,
+                last_spoken_turns=last_spoken_turns,
+                config=config.selector,
+                turn_index=turn_index,
+            )
+            round_index = turn_index // 4 + 1
+            user_prompt = build_discussion_user_prompt(
+                tuple(messages),
+            )
         events.append(
             SelectorEvent(
                 task_id=task.id,
@@ -127,8 +168,6 @@ async def run_hiddenbench_dynamic_task(
                 candidates=candidate_scores,
             )
         )
-        visible_messages = tuple(messages)
-        user_prompt = build_discussion_user_prompt(visible_messages)
         try:
             completion = await provider.complete(
                 agent_id=agent_id,
@@ -148,6 +187,28 @@ async def run_hiddenbench_dynamic_task(
                 f"task {task.id} discussion returned empty text for "
                 f"{agent_id} at turn {turn_index}"
             )
+        appended_fact_ids: tuple[str, ...] = ()
+        if (
+            mechanical_reveal_all
+            and agent_id not in mechanically_revealed_agents
+        ):
+            owner_facts = tuple(
+                fact
+                for fact in atomic_facts
+                if fact.owner_agent_id == agent_id
+            )
+            content, appended_fact_ids = append_reveal_all_block(
+                content,
+                owner_facts,
+            )
+            mechanically_revealed_agents.add(agent_id)
+        message_metadata = dict(completion.provider_metadata)
+        message_metadata.update(
+            {
+                "mechanical_reveal_all": bool(appended_fact_ids),
+                "appended_fact_ids": list(appended_fact_ids),
+            }
+        )
         messages.append(
             HiddenBenchMessage(
                 message_id=_message_id(
@@ -162,15 +223,16 @@ async def run_hiddenbench_dynamic_task(
                 agent_id=agent_id,
                 content=content,
                 visible_message_ids=tuple(
-                    message.message_id for message in visible_messages
+                    message.message_id for message in messages
                 ),
                 system_prompt=hidden_system_prompts[agent_id],
                 user_prompt=user_prompt,
-                provider_metadata=completion.provider_metadata,
+                provider_metadata=message_metadata,
             )
         )
         remaining_quotas[agent_id] -= 1
         last_spoken_turns[agent_id] = turn_index
+        turn_index += 1
 
     if remaining_quotas != {agent_id: 0 for agent_id in AGENT_IDS}:
         raise RuntimeError("dynamic protocol did not exhaust equal quotas")
@@ -229,6 +291,8 @@ async def run_hiddenbench_dynamic_task(
         assignment,
         config,
         baseline_run_id,
+        disclosure_first=disclosure_first,
+        mechanical_reveal_all=mechanical_reveal_all,
     )
     all_items = (*pre_votes, *messages, *post_votes, *full_votes)
     provider_metadata = _aggregate_run_metadata(all_items)
@@ -237,6 +301,7 @@ async def run_hiddenbench_dynamic_task(
             "selector_llm_calls": 0,
             "orchestration_mode": "dynamic",
             "prompt_version": PROMPT_VERSION,
+            "mechanical_reveal_all": mechanical_reveal_all,
         }
     )
     raw = HiddenBenchRawRun(

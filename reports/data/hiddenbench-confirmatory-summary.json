@@ -1,0 +1,274 @@
+{
+  "audit_api_requests": 152,
+  "audit_code_commits": [
+    "e1b32d3c217960bc331c0c751217011e92dd9d2b"
+  ],
+  "audit_count": 210,
+  "by_condition_task": {
+    "dynamic-60:ID1": {
+      "atomic_disclosure_rate": 0.675,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "dynamic-60:ID2": {
+      "atomic_disclosure_rate": 0.6,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "dynamic-60:ID3": {
+      "atomic_disclosure_rate": 0.9,
+      "false_consensus_rate": 0.1,
+      "majority_accuracy": 0.9,
+      "runs": 10,
+      "unanimous_correct_rate": 0.9,
+      "vote_accuracy": 0.9
+    },
+    "dynamic-reveal-all:ID1": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "dynamic-reveal-all:ID2": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "dynamic-reveal-all:ID3": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-12:ID1": {
+      "atomic_disclosure_rate": 0.675,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-12:ID2": {
+      "atomic_disclosure_rate": 0.55,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "fixed-12:ID3": {
+      "atomic_disclosure_rate": 0.825,
+      "false_consensus_rate": 0.2,
+      "majority_accuracy": 0.8,
+      "runs": 10,
+      "unanimous_correct_rate": 0.8,
+      "vote_accuracy": 0.8
+    },
+    "fixed-60:ID1": {
+      "atomic_disclosure_rate": 0.75,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-60:ID2": {
+      "atomic_disclosure_rate": 0.7,
+      "false_consensus_rate": 1.0,
+      "majority_accuracy": 0.0,
+      "runs": 10,
+      "unanimous_correct_rate": 0.0,
+      "vote_accuracy": 0.0
+    },
+    "fixed-60:ID3": {
+      "atomic_disclosure_rate": 0.8,
+      "false_consensus_rate": 0.2,
+      "majority_accuracy": 0.7,
+      "runs": 10,
+      "unanimous_correct_rate": 0.7,
+      "vote_accuracy": 0.7
+    },
+    "fixed-reveal-all:ID1": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "fixed-reveal-all:ID2": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.3,
+      "majority_accuracy": 0.6,
+      "runs": 10,
+      "unanimous_correct_rate": 0.6,
+      "vote_accuracy": 0.625
+    },
+    "fixed-reveal-all:ID3": {
+      "atomic_disclosure_rate": 1.0,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    },
+    "single-local:ID1": {
+      "atomic_disclosure_rate": 0.0,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "single-local:ID2": {
+      "atomic_disclosure_rate": 0.0,
+      "false_consensus_rate": 0.8,
+      "majority_accuracy": 0.2,
+      "runs": 10,
+      "unanimous_correct_rate": 0.2,
+      "vote_accuracy": 0.2
+    },
+    "single-local:ID3": {
+      "atomic_disclosure_rate": 0.0,
+      "false_consensus_rate": 1.0,
+      "majority_accuracy": 0.0,
+      "runs": 10,
+      "unanimous_correct_rate": 0.0,
+      "vote_accuracy": 0.0
+    },
+    "structured-12:ID1": {
+      "atomic_disclosure_rate": 0.975,
+      "false_consensus_rate": 0.3,
+      "majority_accuracy": 0.7,
+      "runs": 10,
+      "unanimous_correct_rate": 0.7,
+      "vote_accuracy": 0.7
+    },
+    "structured-12:ID2": {
+      "atomic_disclosure_rate": 0.825,
+      "false_consensus_rate": 0.3,
+      "majority_accuracy": 0.7,
+      "runs": 10,
+      "unanimous_correct_rate": 0.7,
+      "vote_accuracy": 0.7
+    },
+    "structured-12:ID3": {
+      "atomic_disclosure_rate": 0.975,
+      "false_consensus_rate": 0.0,
+      "majority_accuracy": 1.0,
+      "runs": 10,
+      "unanimous_correct_rate": 1.0,
+      "vote_accuracy": 1.0
+    }
+  },
+  "condition_count": 7,
+  "early_stop": {
+    "candidate_runs": 30,
+    "exact_match_false": 1,
+    "exact_match_true": 29,
+    "mean_saved_messages_candidates": 51.6
+  },
+  "frozen_code_commits": [
+    "1aa577992d3abb3c83e5aeb7ce5475de7100e7af"
+  ],
+  "gate_checks": {
+    "audit_code_provenance": true,
+    "code_commit_provenance": true,
+    "complete_atomic_audits": true,
+    "complete_run_matrix": true,
+    "complete_shadow_checkpoints": true,
+    "condition_shapes_and_budgets": true,
+    "credential_leak_scan": true,
+    "deterministic_row_order": true,
+    "paired_seeds_and_assignments": true,
+    "provider_settings": true,
+    "reveal_all_is_complete": true,
+    "task_and_dataset_hashes": true,
+    "unique_audit_keys": true,
+    "unique_run_keys": true,
+    "valid_atomic_evidence": true
+  },
+  "gate_passed": true,
+  "historical_appendix": {
+    "correct_runs_by_condition": {
+      "dynamic": 14,
+      "dynamic-disc": 21,
+      "fixed": 20,
+      "fixed-12": 21,
+      "fixed-4": 20,
+      "fixed-8": 20,
+      "fixed-disc": 24,
+      "single-direct": 5,
+      "single-reflect": 7,
+      "structured": 20
+    },
+    "earlystop_by_task": {
+      "fixed": {
+        "1": 10,
+        "25": 8,
+        "5": 0,
+        "7": 2
+      },
+      "fixed-4": {
+        "1": 10,
+        "25": 9,
+        "5": 0,
+        "7": 1
+      },
+      "fixed-8": {
+        "1": 10,
+        "25": 8,
+        "5": 0,
+        "7": 2
+      }
+    },
+    "multi_agent_correct_range": [
+      14,
+      24
+    ],
+    "source_files": {
+      "hiddenbench-contrast-20260803.jsonl": "149884fc975b674602c26e82c6a7f25cabeea665b88afac57df716b1c099ca28",
+      "hiddenbench-earlystop-20260803.jsonl": "98b3d98275e7f93c82056941c5213a5a93cc2e4d6c87896dfa13a9d13c4ae30c",
+      "hiddenbench-governance-20260802.jsonl": "6d619660183d39772fb3f14f124c1e13921f7c3f7d3020b71f7933b264edb726",
+      "hiddenbench-stability-20260729.jsonl": "4192695a93612a7a312e7151bbc22cbb053bbcd690d84a085f2b58e8febdf9b8",
+      "hiddenbench-structured-20260802.jsonl": "8a89d7f4cda7483b3e9f71269880fdfab9c7cf95a2f332487c5362ee91efcafd"
+    },
+    "total_conditions": 10,
+    "total_runs": 400
+  },
+  "publication": {
+    "raw_asset": "https://github.com/sbw51898-beep/mas/releases/download/hiddenbench-confirmatory-20260804/hiddenbench-confirmatory-20260804-raw.zip",
+    "raw_asset_sha256": "release/hiddenbench-confirmatory-20260804-raw.sha256",
+    "release_page": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-confirmatory-20260804",
+    "repository": "https://github.com/sbw51898-beep/mas"
+  },
+  "run_api_requests": 11971,
+  "run_commits": [
+    "80f621b223c2a7f0f88434a083c5cf5268d52b51"
+  ],
+  "run_count": 210,
+  "schema_version": "hiddenbench-confirmatory-summary-v1",
+  "source_files": {
+    "hiddenbench-confirmatory-20260804.audits.jsonl": "6df072ef7eee2b998d32133a6cf0c9cad13de9c90347bb3a397eb1362ac29e86",
+    "hiddenbench-confirmatory-20260804.gate.json": "d628b08cc90bef612cd93dfc768a9cf3d54a01c3b9991943e0e8f439aa66c923",
+    "hiddenbench-confirmatory-20260804.jsonl": "6002665ebcdca219e8d4aefc8aee7f284773ee8c7cc8065cac931bd3ba5d329b"
+  },
+  "task_ids": [
+    1,
+    2,
+    3
+  ]
+}

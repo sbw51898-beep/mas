@@ -1,0 +1,12 @@
+{
+  "configuration_path": "configs/hiddenbench-official-reveal-supplement-20260804.json",
+  "configuration_sha256": "8ec87ac3d56b7820384bf2c22d3722a2c4791ce4f3f9d3392616fda80cdb913d",
+  "configuration_version": "hiddenbench-official-reveal-supplement-v1",
+  "frozen_code_commit": "533e10f41f6cc9d4a223a2e8244240450b23c8f3",
+  "generated_at": "2026-08-04T00:00:00Z",
+  "model": "deepseek-v4-flash",
+  "raw_runs_path": "artifacts/hiddenbench-official-reveal-supplement-20260804.jsonl",
+  "raw_runs_sha256": "80402fd4dff56d16171b75bb275cbfa46dde7408f5a4a161d9fa35fdcd81c87a",
+  "run_count": 30,
+  "total_api_requests": 2160
+}

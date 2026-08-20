@@ -236,6 +236,28 @@ class StabilityOfflineProvider:
             )
         return json.dumps({"facts": facts}, ensure_ascii=False)
 
+    @staticmethod
+    def _atomic_audit_payload(prompt: str) -> str:
+        facts: list[dict[str, object]] = []
+        pattern = re.compile(
+            r"^-\s+(atomic-fact:[^|\s]+)\s+\|\s+"
+            r"owner=([^|\s]+)\s+\|\s+claim=",
+            flags=re.MULTILINE,
+        )
+        for fact_id, owner in pattern.findall(prompt):
+            facts.append(
+                {
+                    "fact_id": fact_id,
+                    "owner_agent_id": owner,
+                    "disclosed": False,
+                    "evidence_message_ids": [],
+                    "evidence_quote": "",
+                    "reason": "Offline atomic audit marks semantic claims absent.",
+                    "confidence": 1.0,
+                }
+            )
+        return json.dumps({"facts": facts}, ensure_ascii=False)
+
     async def complete(
         self,
         *,
@@ -256,6 +278,8 @@ class StabilityOfflineProvider:
         )
         if agent_id == "disclosure-auditor":
             text = self._audit_payload(user_prompt)
+        elif agent_id == "atomic-disclosure-auditor":
+            text = self._atomic_audit_payload(user_prompt)
         elif json_response:
             answers = self._answers_from_prompt(user_prompt)
             if not answers:
