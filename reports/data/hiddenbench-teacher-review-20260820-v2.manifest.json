@@ -4,20 +4,20 @@
   "purpose": "固定老师复查问题修订版报告、冻结原始 Prompt 说明、独立审计模型自报证据和复现脚本的可追溯入口",
   "repository": "https://github.com/sbw51898-beep/mas",
   "branch": "codex/budget-matched-dynamic",
-  "commit": "1c3d711c8a8a2611a8c1ee69c7a3ef93f68e48af",
+  "commit": "1c3d711fbe3a78d46c7ecb71628553f2ce7d57c8",
   "release": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-teacher-review-20260820-v2",
   "historical_source_release": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-confirmatory-20260804",
   "files": [
     {
       "path": "reports/基于MAF的HiddenBench多智能体正确性诊断与错误链路分析_老师问题全部修订版_2026-08-20-v2.docx",
-      "bytes": 301603,
-      "sha256": "b781a72ed6b441915d8b8d6b600d63e8fb005b675d84d6d823601b7e123fb9b6",
+      "bytes": 301617,
+      "sha256": "f56a8ae5ab76c80c18f3e0c109c2fec8cc0953ffbc925d0055384c8a1fb224ca",
       "role": "最终报告"
     },
     {
       "path": "reports/build_hiddenbench_closure_report.py",
-      "bytes": 76447,
-      "sha256": "15681b205e0d934d03252ca36d5edb28ae445696dd8c83030e9264f3c0c1ca4f",
+      "bytes": 76640,
+      "sha256": "860db982957e910854ac7b1c22bb714eccc34c4e388b45990eeefad9a4cae7a6",
       "role": "报告生成脚本"
     },
     {
@@ -34,8 +34,8 @@
     },
     {
       "path": "tests/test_build_hiddenbench_closure_report.py",
-      "bytes": 10128,
-      "sha256": "318643805cc2c20b3d086dff2a39ca3039441b1743e1defea3157f091df8c29a",
+      "bytes": 10144,
+      "sha256": "48883cd0f6333ab7514e0a08033aa830c15851e5ac74b53406c4beb654277cce",
       "role": "报告口径回归测试"
     },
     {

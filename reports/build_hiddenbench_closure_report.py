@@ -425,16 +425,17 @@ def _replace_appendix_code_block(
     next_heading_fragment: str,
     replacement: str,
 ) -> None:
+    normalize = lambda value: " ".join(value.split())
     paragraphs = list(document.paragraphs)
     start = next(
         index
         for index, paragraph in enumerate(paragraphs)
-        if heading_fragment in paragraph.text
+        if normalize(heading_fragment) in normalize(paragraph.text)
     )
     end = next(
         index
         for index, paragraph in enumerate(paragraphs[start + 1 :], start + 1)
-        if next_heading_fragment in paragraph.text
+        if normalize(next_heading_fragment) in normalize(paragraph.text)
     )
     next_heading = paragraphs[end]
     for paragraph in paragraphs[start + 1 : end]:
@@ -450,16 +451,17 @@ def _insert_appendix_note_before_code(
     note: str,
 ) -> None:
     """Insert a reader-facing note before an appendix code block."""
+    normalize = lambda value: " ".join(value.split())
     paragraphs = list(document.paragraphs)
     start = next(
         index
         for index, paragraph in enumerate(paragraphs)
-        if heading_fragment in paragraph.text
+        if normalize(heading_fragment) in normalize(paragraph.text)
     )
     end = next(
         index
         for index, paragraph in enumerate(paragraphs[start + 1 :], start + 1)
-        if next_heading_fragment in paragraph.text
+        if normalize(next_heading_fragment) in normalize(paragraph.text)
     )
     if end <= start + 1:
         raise ValueError("appendix code block is missing")
@@ -535,7 +537,7 @@ def _keep_completed_content_only(document: DocumentType) -> None:
     _replace_first_paragraph(
         document,
         "B.3  原子事实披露审计 Prompt",
-        "B.3  来源事实包披露审计 Prompt（冻结原始模板；原文保留）",
+        "B.3 来源事实包披露审计 Prompt（冻结原始模板；原文保留）",
         size=12,
         bold=True,
         color=governance.NAVY,
@@ -570,7 +572,7 @@ def _keep_completed_content_only(document: DocumentType) -> None:
         document,
         heading_fragment="B.3  来源事实包披露审计 Prompt",
         next_heading_fragment="B.4  官方 Reveal-All 时序兼容",
-        note="说明：下面保留冻结实验使用的原始 Prompt。其中“ATOMIC PRIVATE FACTS”是冻结 Prompt 的历史字段名；在本文口径中它对应来源事实包，不等于 clause-level 原子命题。",
+        note="说明：下面保留冻结实验使用的原始 Prompt。其中“ATOMIC PRIVATE FACTS”是冻结 Prompt 的历史字段名；在本文口径中它对应来源事实包，不属于逐分句金标准命题。",
     )
     _replace_appendix_code_block(
         document,

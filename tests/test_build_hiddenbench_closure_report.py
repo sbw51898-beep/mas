@@ -115,7 +115,7 @@ def test_closure_report_closes_teacher_review_ambiguities(
         "没有进行多重比较校正",
         "atomic-fact 只是内部事实包 ID",
         "D_owner 也不等于 D_group",
-        "hiddenbench-teacher-review-20260820-v1",
+        "hiddenbench-teacher-review-20260820-v2",
         "旧版 Release 仅保存历史冻结轨迹",
         "OPENAI_BASE_URL=https://api.deepseek.com",
     ]:
@@ -131,8 +131,9 @@ def test_closure_report_marks_frozen_b3_prompt_and_manifest_commit(
 
     text = _document_text(Document(output))
     assert "B.3 来源事实包披露审计 Prompt（冻结原始模板；原文保留）" in text
-    assert "ATOMIC PRIVATE FACTS 是冻结 Prompt 的历史字段名" in text
-    assert "不等于 clause-level 原子命题" in text
+    assert "ATOMIC PRIVATE FACTS" in text
+    assert "冻结 Prompt 的历史字段名" in text
+    assert "不属于逐分句金标准命题" in text
     assert "B.3  原子事实披露审计 Prompt（真实模板）" not in text
 
     manifest = json.loads(
