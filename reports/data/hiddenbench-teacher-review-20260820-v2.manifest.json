@@ -4,7 +4,7 @@
   "purpose": "固定老师复查问题修订版报告、冻结原始 Prompt 说明、独立审计模型自报证据和复现脚本的可追溯入口",
   "repository": "https://github.com/sbw51898-beep/mas",
   "branch": "codex/budget-matched-dynamic",
-  "commit": "1c3d711fbe3a78d46c7ecb71628553f2ce7d57c8",
+  "commit": "c3d03ef6332d92fd3b689e828937463afa439f62",
   "release": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-teacher-review-20260820-v2",
   "historical_source_release": "https://github.com/sbw51898-beep/mas/releases/tag/hiddenbench-confirmatory-20260804",
   "files": [
