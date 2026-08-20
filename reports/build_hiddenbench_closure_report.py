@@ -40,7 +40,7 @@ from reports.build_paper_style_report import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REPORT_NAME = "基于MAF的HiddenBench多智能体正确性诊断与错误链路分析_老师问题全部修订版_2026-08-19.docx"
+REPORT_NAME = "基于MAF的HiddenBench多智能体正确性诊断与错误链路分析_老师问题全部修订版_2026-08-20.docx"
 CLOSURE_EVIDENCE_PATH = Path("reports/data/hiddenbench-closure-evidence-20260817.json")
 FROZEN_AUDIT_PATH = Path("artifacts/hiddenbench-confirmatory-20260804.audits.jsonl")
 SELF_REPORT_PATH = Path("artifacts/hiddenbench-confirmatory-20260804.self-report-audits.jsonl")
@@ -94,7 +94,8 @@ PUBLIC MESSAGES:
 Return strict JSON only in this shape:
 {"facts": [{"fact_id": "atomic-fact:example", "owner_agent_id": "agent-a", "disclosed": true, "evidence_message_ids": ["message-id"], "evidence_quote": "exact substring", "reason": "short reason", "confidence": 0.95}]}"""
 
-RUNTIME_SELF_REPORT_PROMPT = """Determine whether every atomic private claim was disclosed in the public discussion.
+RUNTIME_SELF_REPORT_PROMPT = """You are an independent post-hoc evidence auditor, not one of the discussion Agents.
+Determine whether every source fact packet was disclosed in the public discussion.
 
 Rules:
 1. Only an owner-authored message can disclose that owner's fact.
@@ -105,7 +106,7 @@ Rules:
 6. After judging all facts, independently count disclosed=true judgments and calculate your own count/denominator rate.
 7. Do not copy a precomputed rate; calculate it from your own fact judgments.
 
-ATOMIC PRIVATE FACTS:
+SOURCE FACT PACKETS (atomic-fact identifiers are internal IDs, not clause-level gold labels):
 - <fact_id> | owner=<agent_id> | claim=<private claim>
 
 PUBLIC MESSAGES:
@@ -717,7 +718,7 @@ def _title_and_abstract(
     meta = document.add_paragraph()
     meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
     meta.paragraph_format.space_after = Pt(18)
-    _font(meta.add_run("补充实验报告 | 2026 年 8 月 19 日"), 10.5, color=governance.MUTED)
+    _font(meta.add_run("补充实验报告 | 2026 年 8 月 20 日"), 10.5, color=governance.MUTED)
 
     _heading(document, "摘要")
     totals = closure["single_agent_comparison"]["overall"]
@@ -725,9 +726,9 @@ def _title_and_abstract(
         "多智能体系统的讨论目标应是最终决策正确，而不是更快形成共识。"
         "既有 HiddenBench 复现已显示，私有信息能否及时公开、被正确理解并落实到行动，会共同影响最终结果。"
         "本文使用冻结确认性 JSONL 与来源事实包披露审计重新提取单智能体基线和消息级错误链路证据。"
-        f"在相同 DeepSeek 模型和三题各 10 次范围内，局部信息单智能体、全信息无讨论单智能体和 fixed-60 多智能体分别为 {totals['single_local']}、{totals['single_full_profile']} 和 {totals['fixed_60_multi_agent']}；fixed-60 与 dynamic-60 的多数正确次数分别为 17/30 与 21/30，配对精确 McNemar 检验 p=0.125，当前样本不足以证明动态机制具有统计显著优势。"
+        f"在相同 DeepSeek 模型和三题各 10 次范围内，局部信息单智能体、全信息无讨论单智能体和 fixed-60 多智能体分别为 {totals['single_local']}、{totals['single_full_profile']} 和 {totals['fixed_60_multi_agent']}；fixed-60 与 dynamic-60 的多数正确次数分别为 17/30 与 21/30，配对精确 McNemar 检验 p=0.125，当前样本不足以证明动态机制具有统计显著优势。两者只匹配了 60 条公开发言，不等计算预算且 dynamic 选择器可见完整私有事实，因此该差异不能解释为公平治理增益。"
         "本文进一步给出未披露、已披露但与证据矛盾、以及已披露但未落实到最终行动的三条消息级链路卡。"
-        f"补充的模型自报披露审计覆盖 60 个普通运行，60/60 次自报计数与其逐条标签汇总一致，但与冻结主审计的逐事实一致率为 fixed-60 {self_report_summary['by_condition']['fixed-60']['fact_agreement']:.1%}、dynamic-60 {self_report_summary['by_condition']['dynamic-60']['fact_agreement']:.1%}，因此披露率被作为模型辅助的敏感性指标而非人工真值。"
+        f"补充的独立审计模型自报披露审计覆盖 60 个普通运行；参与讨论的 Agent 没有在原始公开讨论中输出披露百分比，60/60 只表示同一审计调用内的算术一致性。该审计与冻结主审计的逐事实一致率为 fixed-60 {self_report_summary['by_condition']['fixed-60']['fact_agreement']:.1%}、dynamic-60 {self_report_summary['by_condition']['dynamic-60']['fact_agreement']:.1%}，因此披露率被作为模型辅助的敏感性指标而非人工真值。"
         "本文将这些已完成的自动化结果固定为可追溯证据，以便复查实验设置、关键消息和最终投票。"
     )
     _body(document, abstract)
@@ -780,7 +781,7 @@ def _closure_supplement(
     )
     _body(
         document,
-        f"样本口径分层：表 4 的历史累计量为 {evidence['totals']['local_runs']} 次运行、{evidence['totals']['audit_requests']} 次披露审计和 {evidence['totals']['model_requests']} 次模型请求；本报告主确认性矩阵是 7 个条件 × 3 个任务 × 10 次，即 210 次运行。fixed-60 与 dynamic-60 的核心比较各有 30 次运行；新增的自报披露审计覆盖 60 条已有讨论轨迹，不增加讨论运行次数。",
+        f"样本口径分层：表 4 是历史累计量，共 {evidence['totals']['local_runs']} 次运行、{evidence['totals']['audit_requests']} 次披露审计和 {evidence['totals']['model_requests']} 次模型请求；本报告主确认性矩阵是 7 个条件 × 3 个任务 × 10 次，即 210 次运行。fixed-60 与 dynamic-60 的核心比较各有 30 次运行；新增的独立审计模型自报披露审计覆盖 60 条已有讨论轨迹，不增加讨论运行次数。表 4 的历史总量不能当作主结果的独立样本量。",
     )
 
     _heading(document, "6.6.1 同模型单智能体参考组（非等计算预算）", level=3)
@@ -861,8 +862,16 @@ def _closure_supplement(
         document,
         "本报告将每个 Agent 的一条 private_information 字符串视为一个来源事实包；当前冻结数据没有把包内并列分句拆成 clause-level 原子。因此表 10 是来源包级覆盖率，不是逐分句真值率。主指标 D_owner 只统计事实所有者自己的公开消息对整条事实作忠实、决策相关的转述；反向、矛盾或遗漏关键分句均不计。它不是“任意 Agent 在公共消息中提到该事实”的群体知晓率；本版明确选择 owner-only 口径，D_group 需要另设不限制 owner 的敏感性审计。每题重复 10 次、每次 4 个事实包，因此每题分母为 40，三题合计分母为 120。若某一次运行四个事实包都没有合格证据，0/4=0.0% 是有效边界结果，不是漏检、缺失值或分母为零。普通 fixed-60 与 dynamic-60 的主口径 D_owner 分别为 90/120（75.0%）和 87/120（72.5%）；该数值不应被解释成群体知晓率。",
     )
+    _body(
+        document,
+        "定义补充：代码中的 atomic-fact 只是内部事实包 ID，不等于人工确认的 clause-level 原子命题；D_owner 也不等于 D_group。非所有者 Agent 即使提到该事实，当前 owner-only 主口径仍不计入，因此本表不是群体知晓率。",
+    )
     fixed_crosscheck = ai_crosscheck["by_condition"][0]["overall"]
     dynamic_crosscheck = ai_crosscheck["by_condition"][1]["overall"]
+    _body(
+        document,
+        "口径补充：上面的补充审计由独立审计模型完成，不是参与讨论的 Agent 在原始公开讨论中自己输出百分比。60/60 只表示同一审计调用内的计数、分母和百分比算术一致，不表示审计判断已经正确；正式准确性仍需人工金标准。",
+    )
     _body(
         document,
         f"冻结主审计的 disclosure_rate 位于 artifacts/hiddenbench-confirmatory-20260804.audits.jsonl；B.3 Prompt 要求模型只返回逐条 disclosed=true/false、证据消息 ID 和原文片段，并明确写着“Do not calculate the percentage”，所以冻结主指标是“AI逐条证据判断 + 程序确定性汇总”。为回应老师关于“让 AI 自己报百分比”的要求，本版另做了 60 个普通 fixed/dynamic 运行的补充自报审计：新 Prompt 要求模型同时返回 reported_disclosure_count、reported_disclosure_denominator 和 reported_disclosure_rate，并由程序再次复算。补充审计中 60/60 条运行的模型自报计数、分母和百分比均与其逐条标签一致；但与冻结主审计逐事实一致率为 fixed-60 {self_report_summary['by_condition']['fixed-60']['fact_agreement']:.1%}（{self_report_summary['by_condition']['fixed-60']['fact_agreement_count']}/{self_report_summary['by_condition']['fixed-60']['fact_total']}），dynamic-60 {self_report_summary['by_condition']['dynamic-60']['fact_agreement']:.1%}（{self_report_summary['by_condition']['dynamic-60']['fact_agreement_count']}/{self_report_summary['by_condition']['dynamic-60']['fact_total']}）。这说明百分比会受审计调用影响，主表 10 的 D_owner 仍是冻结主口径，补充自报结果作为敏感性分析，不作为人工金标准。审计和讨论都使用 deepseek-v4-flash；独立调用不等于独立模型，因此仍不能单独证明信息已被正确解释或用于最终投票。",
@@ -931,7 +940,7 @@ def _closure_supplement(
         f"按最终多数投票是否正确分层，fixed-60 的正确运行 {fixed_strat['correct_runs']} 次，平均 D_owner 为 {fixed_strat['correct_mean_disclosure_rate']:.1%}；错误运行 {fixed_strat['incorrect_runs']} 次，平均为 {fixed_strat['incorrect_mean_disclosure_rate']:.1%}。dynamic-60 的正确运行 {dynamic_strat['correct_runs']} 次，平均为 {dynamic_strat['correct_mean_disclosure_rate']:.1%}；错误运行 {dynamic_strat['incorrect_runs']} 次，平均为 {dynamic_strat['incorrect_mean_disclosure_rate']:.1%}。两种机制中正确与错误运行的披露率都有重叠，因此当前数据不支持把披露率单独当作正确率的充分预测量；它更适合作为后续检查“披露后是否被利用和解释”的入口。",
     )
 
-    _heading(document, "6.6.3 逐题重复稳定性", level=3)
+    _heading(document, "6.6.3 逐题重复一致性（探索性）", level=3)
     stability_rows = []
     for item in repeat_stability["by_condition"]:
         by_task = item["by_task"]
@@ -945,7 +954,7 @@ def _closure_supplement(
                 f"{item['overall']['correct_runs']}/{item['overall']['total_runs']}（{item['overall']['rate']:.1%}）",
             ]
         )
-    _table_caption(document, "表 12  逐题重复稳定性（每题 10 次，多数投票正确记为 C）")
+    _table_caption(document, "表 12  逐题重复一致性（每题 10 次，多数投票正确记为 C）")
     _table(
         document,
         ["机制", "ID1", "ID2", "ID3", "三题合计"],
@@ -960,6 +969,10 @@ def _closure_supplement(
     _body(
         document,
         "多数正确的判定规则是严格多数：4 个 Agent 中至少 3 票与正确答案一致才记为正确；2∶2 平票记为错误，不进行事后随机打破。冻结轨迹中出现的 2∶2 终局因此被保留为错误结果，而不是被隐藏或改判。",
+    )
+    _body(
+        document,
+        "重复结果的解释边界：三题共享同一撤离背景，每题只有 10 次重复，且 generation seed 未同步传给 DeepSeek；因此这里的“重复一致性”只描述这三道题在当前模型和当前调用条件下的运行分布，不是跨任务、跨模型的普遍稳定性。",
     )
 
     _heading(document, "6.6.4 成对比较与 McNemar 检验口径", level=3)
@@ -986,6 +999,10 @@ def _closure_supplement(
     _body(
         document,
         "每一对按 task_id + repetition 匹配，并核验相同 pair_seed 与 assignment_fingerprint；例如 fixed-60 vs dynamic-60 为 30/30 对齐，A 独有正确 0 次、B 独有正确 4 次、discordant=4。表 7 的 p 值是基于 discordant 对的双侧精确 McNemar 检验（等价于二项检验），不是独立样本检验。配对输入相同并不意味着 DeepSeek 收到同步 generation seed；因此该检验控制了任务和事实分配，不能消除后端生成随机性。",
+    )
+    _body(
+        document,
+        "统计解释补充：30 对运行来自 3 道共享背景的任务各重复 10 次，任务内重复并非 30 个不同任务。因此 McNemar p 值仅作探索性描述（限于本地三题），不作总体 HiddenBench 推断；本版也没有进行多重比较校正。",
     )
 
     _heading(document, "6.6.5 structured-12 的定义与可复查 Prompt", level=3)
@@ -1045,6 +1062,10 @@ def _closure_supplement(
         document,
         "五因子选择器是中心化、内容感知且带特权信息的诊断调度器：它可读取完整私有事实分配，计算未披露、相关讨论、回应到期等分数；它不读取正确答案，也不把原始私有事实直接注入 Agent prompt。它因此不是普通去中心化 MAS 的公平基线，更接近一个知道“哪些信息还没被说出”的 oracle-like 调度器；结果只说明这种受限机制在本地条件下值得比较。",
     )
+    _body(
+        document,
+        "因此 fixed-60 与 dynamic-60 是不等计算预算且选择器可见完整私有事实的探索性对照；21/30 对 17/30 不能解释为已经证明的调度器因果效果。若要做公平效果检验，后续必须同时匹配总模型调用预算，并限制或对称化选择器的信息权限。",
+    )
 
     _heading(document, "6.6.8 三条可追溯错误链路卡", level=3)
     cards = closure["causal_cards"]
@@ -1092,6 +1113,10 @@ def _report_boundaries_and_prompts(
         document,
         "官方 HiddenBench 代码使用作者自写 Python simulator 和 GPT-4.1；本地使用 MAF 的 Agent.run() 作为模型调用执行适配层，并由项目代码实现群聊轮转、历史拼接、投票、Reveal 和审计。因此本地结果是跨实现的方向性验证，不是严格逐字、逐协议复现，也不能把差异单独归因于模型或框架。",
     )
+    _body(
+        document,
+        "实现边界再明确：本项目使用的是 MAF Agent/Agent.run 执行层，讨论协议、选择器和审计由项目代码实现；因此“基于 MAF”不等于完整复现 MAF 原生 SelectorGroupChat 或其默认编排策略。",
+    )
     _body(document, "复现元数据：")
     _append_code_block(
         document,
@@ -1105,7 +1130,11 @@ def _report_boundaries_and_prompts(
     )
     _body(
         document,
-        "冻结运行没有记录解析后的精确包版本，因此本报告不声称已完成版本级归因。运行配置固定为 deepseek-v4-flash、temperature=0、thinking=disabled；DeepSeek 未接收同步 generation seed，因此这里只能保证任务、事实分配和协议输入的配对。本稿交付包将报告、生成脚本、自报审计 JSONL、闭环证据快照和 SHA-256 清单统一放入 reports/data/hiddenbench-teacher-review-20260819.manifest.json；旧版 Release 不包含 2026-08-19 新增的自报审计文件，新提交的固定 commit 以该清单为入口。",
+        "冻结运行没有记录解析后的精确包版本，因此本报告不声称已完成版本级归因。运行配置固定为 deepseek-v4-flash、temperature=0、thinking=disabled；DeepSeek 未接收同步 generation seed，因此这里只能保证任务、事实分配和协议输入的配对。本稿交付包将报告、生成脚本、自报审计 JSONL、闭环证据快照和 SHA-256 清单统一放入 reports/data/hiddenbench-teacher-review-20260820.manifest.json；本次修订的 manifest_version 为 hiddenbench-teacher-review-20260820-v1。旧版 Release 仅保存历史冻结轨迹，新提交的固定 commit/release 以新 manifest 为主入口。",
+    )
+    _body(
+        document,
+        "复现参数补充：自报审计脚本默认使用 OPENAI_BASE_URL=https://api.deepseek.com、模型 deepseek-v4-flash、temperature=0、thinking=disabled；当前证据未同步 generation seed，也未记录冻结运行解析后的精确包版本，因此这些版本级因素仍不能用于单因素归因。",
     )
     _body(
         document,
@@ -1134,6 +1163,10 @@ def _report_boundaries_and_prompts(
     )
     _body(
         document,
+        "样本量提醒：官方基线每题 n=30，本地条件每题 n=10；表中百分比仅用于方向性比较，不能作同样本量下的数值复现。",
+    )
+    _body(
+        document,
         "三题各重复 10 次的 n=30 是运行级样本，不是 30 个相互独立的任务；三题还共享同一撤离背景。因此 Wilson 区间和配对检验只能支持这三题上的探索性稳定性描述，不能外推到 HiddenBench 全部 65 题或一般 MAS。",
     )
 
@@ -1155,7 +1188,7 @@ def _report_boundaries_and_prompts(
     )
     _body(
         document,
-        "这些哈希对应本报告所有百分比、配对计数和案例卡的输入；交付时以 reports/data/hiddenbench-teacher-review-20260819.manifest.json 作为证据入口，报告修订本与生成脚本、自报审计和证据快照固定在同一提交中。",
+        "这些哈希对应本报告所有百分比、配对计数和案例卡的输入；交付时以 reports/data/hiddenbench-teacher-review-20260820.manifest.json 作为证据入口，报告修订本与生成脚本、自报审计和证据快照固定在同一提交中。旧版 Release 仅保存历史冻结轨迹，不再作为本次修订的唯一入口。",
     )
 
     example = closure["prompt_example"]
@@ -1241,10 +1274,10 @@ def _report_boundaries_and_prompts(
     _body(document, "模型实际公开输出：", bold_lead="模型实际公开输出：")
     _append_code_block(document, turn["actual_output"], font_size=6.8)
 
-    _heading(document, "6.7.3 补充模型自报披露率 Prompt", level=3)
+    _heading(document, "6.7.3 补充独立审计模型自报披露率 Prompt", level=3)
     _body(
         document,
-        "该 Prompt 不替换冻结主审计，只用于回应“让 AI 自己说披露百分比”的要求。每次请求同时保存逐条证据判断、模型自报计数/分母/百分比，以及程序复算值；若二者不一致，则该运行标记为不一致。",
+        "该 Prompt 不替换冻结主审计，也不代表参与讨论的 Agent 在讨论过程中自报百分比；它用于回应“让 AI 自己说披露百分比”的要求。每次独立审计请求同时保存逐条证据判断、模型自报计数/分母/百分比，以及程序复算值；若二者不一致，则该运行标记为不一致。60/60 一致只检验算术汇总，不检验披露判断本身的准确性。",
     )
     _append_code_block(document, RUNTIME_SELF_REPORT_PROMPT, font_size=6.3)
     example = self_report_summary["example"]
@@ -1277,7 +1310,7 @@ def _conclusion(document: DocumentType) -> None:
     )
     _body(
         document,
-        "需要特别保留的边界是：本文的来源事实包披露率来自模型辅助审计，补充自报审计证明了模型能从自己的逐条判断中汇总百分比，但没有替代人工金标准；HiddenBench 原论文与本地实现同时更换了模型、框架和消息协议，当前结果也不能完成模型与框架的单因素归因。后续若要把披露率作为正式测量指标，应先完成独立人工双盲复核，并补充 clause-level 与 group-level 敏感性分析；在这些工作完成前，本文应被理解为正确性诊断与治理框架原型，而不是已经闭环验证的部署系统。",
+        "需要特别保留的边界是：本文的来源事实包披露率来自模型辅助审计，补充的独立审计模型自报只证明了同一调用内能从自身逐条判断汇总出百分比，没有替代人工金标准，也不是参与讨论的 Agent 自报；HiddenBench 原论文与本地实现同时更换了模型、框架和消息协议，当前结果也不能完成模型与框架的单因素归因。后续若要把披露率作为正式测量指标，应先完成独立人工双盲复核，并补充 clause-level 与 group-level 敏感性分析；在这些工作完成前，本文应被理解为正确性诊断与治理框架原型，而不是已经闭环验证的部署系统。",
     )
     _callout(
         document,

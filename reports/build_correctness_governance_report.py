@@ -114,7 +114,7 @@ def _title_and_abstract(document: DocumentType, evidence: dict[str, Any]) -> Non
         "大语言模型多智能体系统通过讨论汇集分散信息，但形成共识并不意味着最终答案正确。"
         "HiddenBench 与多智能体失败研究已揭示分布式信息条件下的错误共识，却较少把错误定位、观测指标和干预机制连成一套治理过程。"
         "本文把私有事实到最终决策划分为公开、读取、解释和行动环节，并以最终正确率作为结果指标，以披露、证据利用、解释一致性和投票指标作为诊断信号。"
-        "研究使用 Microsoft Agent Framework 调用 DeepSeek，复现三个具有官方逐题结果的 HiddenBench 短任务，并比较结构化交换、固定轮转、同预算动态发言和不同 Reveal-All 时序。"
+        "研究使用 Microsoft Agent Framework 的 Agent/Agent.run 执行层调用 DeepSeek，讨论协议、选择器和审计由项目代码实现；复现三个具有官方逐题结果的 HiddenBench 短任务，并比较结构化交换、固定轮转、同公开发言次数下的动态发言和不同 Reveal-All 时序。"
         f"现有证据共包含 {evidence['totals']['local_runs']} 次本地运行和 {evidence['totals']['model_requests']:,} 次模型请求，官方兼容第一轮全局 Reveal-All 为 30/30，而逐步 fixed-reveal-all 为 26/30。"
         "固定与动态发言、固定与结构化讨论的配对检验均未达到统计显著，说明当前样本只支持方向性差异。"
         "结果表明，多智能体正确性治理应先定位信息公开、利用、解释或决策失败，再实施针对性干预，而不能用披露率或共识强度替代正确性检验。"
@@ -296,7 +296,7 @@ def _experiment_design(document: DocumentType, evidence: dict[str, Any]) -> None
     _heading(document, "5.2 对标层次与实验控制", level=2)
     _body(
         document,
-        "第一层是跨实现复现：官方 GPT-4.1 与作者自写模拟器，对比本地 DeepSeek 与 MAF，只判断结论方向是否仍然存在。第二层是本地机制比较：保持任务、模型、Prompt、事实分配和发言预算一致，再比较讨论协议，避免把模型、框架或预算差异误认为治理效果。pair seed 只控制事实归属，generation seed 未传给 DeepSeek，因此不能保证逐字复现。",
+        "第一层是跨实现复现：官方 GPT-4.1 与作者自写模拟器，对比本地 DeepSeek 与 MAF Agent/Agent.run 执行层，只判断结论方向是否仍然存在。第二层是本地机制比较：保持任务、模型、Prompt、事实分配和公开发言次数一致，再比较讨论协议；总响应槽和选择器的信息权限另行报告，不能把模型、框架或总预算差异误认为治理效果。pair seed 只控制事实归属，generation seed 未传给 DeepSeek，因此不能保证逐字复现。",
     )
     scale_rows = [
         ["本地运行", f"{evidence['totals']['local_runs']} 次", "各阶段冻结证据合计"],
@@ -304,29 +304,33 @@ def _experiment_design(document: DocumentType, evidence: dict[str, Any]) -> None
         ["披露审计请求", f"{evidence['totals']['audit_requests']} 次", "AI 原子事实判定"],
         ["模型请求总数", f"{evidence['totals']['model_requests']:,} 次", "讨论/投票与审计合计"],
     ]
-    _table_caption(document, "表 4  冻结证据规模")
+    _table_caption(document, "表 4  冻结证据规模（历史累计量，非主确认性矩阵）")
     _table(document, ["项目", "规模", "说明"], scale_rows, [2500, 1700, 5160], font_size=8.0)
+    _body(
+        document,
+        "表 4 是各阶段历史累计量；主确认性矩阵为 7 个条件 × 3 个任务 × 10 次，即 210 次运行。表 4 的总量不能直接当作本报告的独立样本量。",
+    )
 
 
 def _results_and_attribution(document: DocumentType, evidence: dict[str, Any]) -> None:
     _heading(document, "6 实验结果与归因分析")
     _heading(document, "6.1 原论文与本地复现是否得到相同结论", level=2)
     comparison_rows = [
-        ["ID1", "11/30", "10/10", "10/10", "10/10"],
-        ["ID2", "4/30", "0/10", "9/10", "10/10"],
-        ["ID3", "6/30", "7/10", "10/10", "10/10"],
+        ["ID1", "11/30（36.7%）", "10/10（100.0%）", "10/10（100.0%）", "10/10（100.0%）"],
+        ["ID2", "4/30（13.3%）", "0/10（0.0%）", "9/10（90.0%）", "10/10（100.0%）"],
+        ["ID3", "6/30（20.0%）", "7/10（70.0%）", "10/10（100.0%）", "10/10（100.0%）"],
     ]
-    _table_caption(document, "表 5  官方 GPT-4.1 与本地 DeepSeek 的逐题结果")
+    _table_caption(document, "表 5  官方 GPT-4.1 与本地 DeepSeek 的逐题结果（含百分比与样本量）")
     _table(
         document,
-        ["任务", "官方基线", "本地 fixed-60", "官方 Reveal-All", "本地官方兼容 Reveal-All"],
+        ["任务", "官方基线（n=30）", "本地 fixed-60（n=10）", "官方 Reveal-All（n=10）", "本地官方兼容 Reveal-All（n=10）"],
         comparison_rows,
         [700, 1500, 1700, 1700, 3760],
         font_size=7.5,
     )
     _body(
         document,
-        "官方部分信息基线 ID1、ID2、ID3 分别为 11/30、4/30、6/30；本地 fixed-60 分别为 10/10、0/10、7/10。两边方向上都观察到分布式信息条件下的失败，且全局 Reveal-All 后接近或达到满分，但具体数值并不一致。ID2 在本地更差，ID1 和 ID3 则更好。",
+        "官方部分信息基线 ID1、ID2、ID3 分别为 11/30（36.7%）、4/30（13.3%）、6/30（20.0%）；本地 fixed-60 分别为 10/10（100.0%）、0/10（0.0%）、7/10（70.0%）。两边方向上都观察到分布式信息条件下会失败，且全局 Reveal-All 后接近或达到满分，但官方每题 n=30、本地条件每题 n=10，百分比仅用于方向性比较，不能作同样本量下的数值复现。",
     )
     _body(
         document,
@@ -451,7 +455,8 @@ def _appendices(document: DocumentType, evidence: dict[str, Any]) -> None:
         ["本项目仓库", publication["repository"]],
         ["实验分支", publication["branch"]],
         ["Pull Request", publication["pull_request"]],
-        ["证据 Release", publication["release"]],
+        ["历史证据 Release", publication["release"]],
+        ["本次修订 manifest", "reports/data/hiddenbench-teacher-review-20260820.manifest.json"],
     ]
     _table(document, ["项目", "位置"], source_rows, [2400, 6960], font_size=7.2)
     _body(
@@ -466,12 +471,12 @@ def _appendices(document: DocumentType, evidence: dict[str, Any]) -> None:
         _font(run, 13, bold=True, color=BLUE)
     term_rows = [
         ["MAF", "Microsoft Agent Framework；本文只使用 Agent/模型执行能力。"],
-        ["披露率 D", "通过证据核验的已披露原子事实数 m 除以事实总数 n。"],
+        ["披露率 D", "通过证据核验的已披露来源事实包数 m 除以事实包总数 n；本报告主口径为 owner-only。"],
         ["错误共识", "多数或全体 Agent 对错误选项形成一致判断。"],
         ["全局 Reveal-All", "第一轮每条响应都获得全部私有事实，用作信息可得性上限。"],
         ["逐步 reveal-all", "事实随所有者发言逐条进入讨论，最终完整但时序不同。"],
-        ["模型辅助复核", "Codex 独立标签复核，不是人工金标准。"],
-        ["统计不显著", "当前样本不足以拒绝成功概率相同的零假设，不代表两条件完全相同。"],
+        ["模型辅助复核", "独立审计模型对冻结公共消息做标签判断，不是参与讨论的 Agent 自报，也不是人工金标准。"],
+        ["统计不显著", "当前样本不足以拒绝成功概率相同的零假设；本报告 p 值只作三题探索性描述，未进行多重比较校正。"],
     ]
     _table(document, ["术语", "本文含义"], term_rows, [2500, 6860], font_size=7.8)
 

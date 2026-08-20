@@ -50,7 +50,7 @@ def test_closure_report_keeps_only_completed_experiment_content(
         "90/120（75.0%）",
         "87/120（72.5%）",
         "模型辅助的敏感性指标而非人工真值",
-        "补充的模型自报披露审计覆盖 60 个普通运行",
+        "补充的独立审计模型自报披露审计覆盖 60 个普通运行",
         "冻结主审计的 disclosure_rate 位于 artifacts/hiddenbench-confirmatory-20260804.audits.jsonl",
         "B.3 Prompt 要求模型只返回逐条 disclosed=true/false、证据消息 ID 和原文片段",
         "普通 fixed-60 与 dynamic-60 的主口径 D_owner 分别为 90/120（75.0%）和 87/120（72.5%）",
@@ -89,6 +89,35 @@ def test_closure_report_keeps_only_completed_experiment_content(
         "需要人工复核",
     ]:
         assert forbidden not in text
+
+
+def test_closure_report_closes_teacher_review_ambiguities(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "closure.docx"
+
+    build_hiddenbench_closure_report(ROOT, output, None)
+
+    text = _document_text(Document(output))
+    for required in [
+        "独立审计模型自报披露率",
+        "参与讨论的 Agent 没有在原始公开讨论中输出披露百分比",
+        "60/60 只表示同一审计调用内的算术一致性",
+        "官方基线每题 n=30，本地条件每题 n=10",
+        "百分比仅用于方向性比较，不能作同样本量下的数值复现",
+        "MAF Agent/Agent.run 执行层",
+        "讨论协议、选择器和审计由项目代码实现",
+        "不等计算预算且选择器可见完整私有事实",
+        "三题共享同一撤离背景",
+        "McNemar p 值仅作探索性描述",
+        "没有进行多重比较校正",
+        "atomic-fact 只是内部事实包 ID",
+        "D_owner 也不等于 D_group",
+        "hiddenbench-teacher-review-20260820-v1",
+        "旧版 Release 仅保存历史冻结轨迹",
+        "OPENAI_BASE_URL=https://api.deepseek.com",
+    ]:
+        assert required in text
 
 
 def test_closure_report_keeps_true_footnotes_and_preserves_original(
@@ -162,7 +191,7 @@ def test_closure_report_states_actual_prompts_and_comparison_boundaries(
         "dynamic-60 的披露率略低但正确数更高",
         "pair seed 只随机化事实归属和事实顺序",
         "发言顺序由 fixed/dynamic 协议决定",
-        "逐题重复稳定性",
+        "逐题重复一致性（探索性）",
         "fixed-60：ID1 10/10、ID2 0/10、ID3 7/10",
         "dynamic-60：ID1 10/10、ID2 2/10、ID3 9/10",
         "独立调用不等于独立模型",

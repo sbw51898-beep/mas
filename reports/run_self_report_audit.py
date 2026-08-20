@@ -1,9 +1,11 @@
-"""Run a supplementary AI-self-reported disclosure audit on frozen runs.
+"""Run a supplementary independent-auditor self-reported disclosure audit.
 
-This is deliberately separate from the frozen atomic audit.  The frozen audit
-keeps the model from calculating a percentage; this supplementary audit asks
-the same model to return both the fact-level labels and its own count/rate so
-the two can be compared explicitly.
+This is deliberately separate from the frozen source-fact audit and from the
+participating discussion Agents. The auditor reads a frozen public trace,
+returns fact-level labels, and reports the count/rate derived from its own
+labels. The count/rate is an arithmetic consistency check, not a human-gold
+accuracy claim and not a claim that the discussion Agents themselves emitted
+the percentage.
 """
 
 from __future__ import annotations
@@ -33,6 +35,8 @@ OUTPUT = ROOT / "artifacts" / "hiddenbench-confirmatory-20260804.self-report-aud
 MODEL = os.environ.get("OPENAI_CHAT_COMPLETION_MODEL", "deepseek-v4-flash")
 BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com").rstrip("/")
 API_KEY = os.environ.get("OPENAI_API_KEY", "")
+AUDIT_ROLE = "independent_posthoc_evidence_auditor"
+PROMPT_VERSION = "hiddenbench-independent-audit-self-report-v2"
 
 
 def _load_runs() -> list[dict[str, Any]]:
@@ -84,7 +88,8 @@ def _prompt(record: dict[str, Any]) -> str:
         "reported_disclosure_rate": 0.25,
     }
     return (
-        "Determine whether every atomic private claim was disclosed in the public discussion.\n\n"
+        "You are an independent post-hoc evidence auditor, not one of the discussion Agents.\n"
+        "Determine whether every source fact packet was disclosed in the public discussion.\n\n"
         "Rules:\n"
         "1. Only an owner-authored message can disclose that owner's fact.\n"
         "2. A faithful paraphrase counts; a polarity reversal, contradiction, or decision-relevant omission does not.\n"
@@ -93,7 +98,7 @@ def _prompt(record: dict[str, Any]) -> str:
         "5. Return exactly one judgment for every fact ID.\n"
         "6. After judging all facts, independently count how many are disclosed and calculate your own rate as count/denominator.\n"
         "7. Do not infer a rate from any precomputed field; calculate it from your own fact judgments.\n\n"
-        f"ATOMIC PRIVATE FACTS:\n{facts_text}\n\n"
+        f"SOURCE FACT PACKETS (atomic-fact identifiers are internal IDs, not clause-level gold labels):\n{facts_text}\n\n"
         f"PUBLIC MESSAGES:\n{messages_text}\n\n"
         "Return strict JSON only in this shape (the example values are placeholders):\n"
         f"{json.dumps(shape, ensure_ascii=False)}"
@@ -201,8 +206,9 @@ def _one(record: dict[str, Any]) -> dict[str, Any]:
     return {
         "key": record["key"],
         "run_id": record["run"]["run_id"],
+        "audit_role": AUDIT_ROLE,
         "judge_model": MODEL,
-        "judge_prompt_version": "hiddenbench-self-report-disclosure-v1",
+        "judge_prompt_version": PROMPT_VERSION,
         "raw_response": content,
         "usage": usage,
         **parsed,
