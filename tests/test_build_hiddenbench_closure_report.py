@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 import subprocess
 import sys
 import zipfile
@@ -118,6 +120,26 @@ def test_closure_report_closes_teacher_review_ambiguities(
         "OPENAI_BASE_URL=https://api.deepseek.com",
     ]:
         assert required in text
+
+
+def test_closure_report_marks_frozen_b3_prompt_and_manifest_commit(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "closure.docx"
+
+    build_hiddenbench_closure_report(ROOT, output, None)
+
+    text = _document_text(Document(output))
+    assert "B.3 来源事实包披露审计 Prompt（冻结原始模板；原文保留）" in text
+    assert "ATOMIC PRIVATE FACTS 是冻结 Prompt 的历史字段名" in text
+    assert "不等于 clause-level 原子命题" in text
+    assert "B.3  原子事实披露审计 Prompt（真实模板）" not in text
+
+    manifest = json.loads(
+        (ROOT / "reports/data/hiddenbench-teacher-review-20260820-v2.manifest.json")
+        .read_text(encoding="utf-8")
+    )
+    assert re.fullmatch(r"[0-9a-f]{40}", manifest["commit"])
 
 
 def test_closure_report_keeps_true_footnotes_and_preserves_original(
